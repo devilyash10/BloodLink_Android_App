@@ -1,0 +1,170 @@
+com.bloodlink.app
+│
+├── BloodLinkApplication.kt             // @HiltAndroidApp class
+├── MainActivity.kt                     // Single Activity, sets up Compose theme and NavHost
+│
+├── core/                               // App-wide configurations and utilities
+│   ├── theme/
+│   │   ├── Color.kt                    // Primary Red (#E62129), Backgrounds, Text colors
+│   │   ├── Theme.kt                    // BloodLinkTheme Material 3 wrapper
+│   │   ├── Type.kt                     // Typography (Font weights, sizes)
+│   │   └── Shape.kt                    // Rounded corner definitions for buttons/cards
+│   ├── navigation/
+│   │   ├── AppNavHost.kt               // The main Composable holding the NavController
+│   │   ├── AuthNavGraph.kt             // Nested graph: Splash -> Onboarding -> Login -> SignUp
+│   │   ├── MainNavGraph.kt             // Nested graph: Home, Profile, Requests, etc.
+│   │   └── Routes.kt                   // Type-safe route objects/sealed classes
+│   ├── utils/
+│   │   ├── Constants.kt                // Map default zoom, animation durations
+│   │   ├── Result.kt                   // Sealed class for Success/Error handling (Domain layer)
+│   │   └── DateFormatter.kt            // Helper to format "12 Jan 2024" or "2 min ago"
+│   └── location/
+│       └── LocationTracker.kt          // Interface for fetching GPS coordinates (FusedLocation)
+│
+├── di/                                 // Hilt Dependency Injection Modules
+│   ├── AppModule.kt                    // Context, Dispatchers, DataStore
+│   ├── NetworkModule.kt                // Retrofit/Firebase instances
+│   ├── LocationModule.kt               // Provides LocationTracker implementation
+│   └── RepositoryModule.kt             // Binds Interfaces to Implementations (Fake/Real)
+│
+├── domain/                             // Pure Kotlin, ZERO Android dependencies
+│   ├── model/                          // Business models
+│   │   ├── User.kt                     // Auth & Profile data
+│   │   ├── Donor.kt                    // Donor specific data (distance, availability)
+│   │   ├── BloodBank.kt                // Blood bank data (hours, location)
+│   │   ├── BloodRequest.kt             // Emergency request data
+│   │   ├── Notification.kt             // Alert data
+│   │   └── Enums.kt                    // UrgencyLevel, RequestStatus, BloodGroup types
+│   ├── repository/
+│   │   ├── AuthRepository.kt           // Login, SignUp, Logout contracts
+│   │   ├── UserRepository.kt           // Profile updates, saved donors
+│   │   ├── DonorRepository.kt          // Fetching/Searching donors
+│   │   ├── RequestRepository.kt        // Creating and fetching blood requests
+│   │   └── NotificationRepository.kt   // Fetching alerts
+│   └── usecase/                        // Single-responsibility business logic
+│       ├── validation/                 // Form validations
+│       │   ├── ValidatePhoneUseCase.kt
+│       │   ├── ValidatePasswordUseCase.kt
+│       │   └── ValidateNameUseCase.kt
+│       ├── auth/
+│       │   ├── LoginUseCase.kt
+│       │   └── CheckOnboardingCompleteUseCase.kt
+│       ├── donors/
+│       │   └── CalculateDistanceUseCase.kt
+│       └── requests/
+│           └── CreateEmergencyRequestUseCase.kt
+│
+├── data/                               // Implementations of Domain contracts
+│   ├── repository/                     
+│   │   ├── AuthRepositoryImpl.kt       // Uses Firebase Auth
+│   │   ├── DonorRepositoryFake.kt      // Our mock data implementation (for UI dev)
+│   │   └── RequestRepositoryImpl.kt    // Uses Firestore
+│   ├── local/                          // Local caching / preferences
+│   │   ├── datastore/
+│   │   │   └── UserPreferences.kt      // Saves "Onboarding completed" state
+│   │   └── room/                       // (Optional) For offline caching of notifications/history
+│   │       ├── AppDatabase.kt
+│   │       ├── NotificationDao.kt
+│   │       └── NotificationEntity.kt
+│   └── remote/                         // Network / Firebase
+│       ├── FirebaseHelper.kt
+│       └── dto/                        // Data Transfer Objects (parsing DB responses to Domain models)
+│           ├── UserDto.kt
+│           └── RequestDto.kt
+│
+└── presentation/                       // UI Layer (Compose Screens & ViewModels)
+    │
+    ├── components/                     // Granular, reusable UI widgets
+    │   ├── buttons/
+    │   │   ├── PrimaryRedButton.kt     // Main action buttons (Login, Next, Search)
+    │   │   ├── SecondaryOutlinedButton.kt // (Message, View My Requests)
+    │   │   └── SocialAuthButtons.kt    // Google / Apple login buttons
+    │   ├── inputs/
+    │   │   ├── StandardTextField.kt    // Password, Name, Phone inputs
+    │   │   ├── SearchBar.kt            // "Search by city or area"
+    │   │   └── BloodGroupSelector.kt   // The A+, O- row of chips and the dropdown
+    │   ├── cards/
+    │   │   ├── DonorListItemCard.kt    // Used in "Donor List Screen"
+    │   │   ├── BloodBankCard.kt        // Used in "Blood Banks Screen"
+    │   │   ├── RequestItemCard.kt      // Used in "My Requests Screen"
+    │   │   └── ImpactStatCard.kt       // The "2 Donations", "5 Lives Saved" cards on Home
+    │   ├── dialogs/
+    │   │   ├── FilterBottomSheet.kt    // Appears when "Advanced Filters" is clicked
+    │   │   └── MapPinBottomSheet.kt    // Appears when a map pin is tapped
+    │   └── common/
+    │       ├── CustomTopAppBar.kt      // Back button + Title + Optional right icon
+    │       ├── BottomNavBar.kt         // Home, Requests, +, Notifications, Profile
+    │       ├── CircularAvatar.kt       // User profile pictures with optional verified tick
+    │       ├── UrgencyToggle.kt        // Low / Medium / High segmented button
+    │       └── SectionHeader.kt        // "Nearby Donors", "Your Impact" texts with 'See All'
+    │
+    ├── feature_auth/                   // Splash, Onboarding, Login, Signup
+    │   ├── splash/
+    │   │   └── SplashScreen.kt
+    │   ├── onboarding/
+    │   │   └── OnboardingScreen.kt
+    │   ├── login/
+    │   │   ├── LoginScreen.kt
+    │   │   └── LoginViewModel.kt       // Holds email/pass state, triggers AuthRepository
+    │   ├── signup/
+    │   │   ├── SignUpScreen.kt
+    │   │   └── SignUpViewModel.kt
+    │   └── forgot_password/
+    │       ├── ForgotPasswordScreen.kt
+    │       └── ForgotPasswordViewModel.kt
+    │
+    ├── feature_home/                   // Main Dashboard
+    │   ├── HomeScreen.kt
+    │   └── HomeViewModel.kt            // Fetches username, impact stats
+    │
+    ├── feature_donors/                 // Discovery, List, and Profiles
+    │   ├── search/
+    │   │   ├── SearchDonorsScreen.kt
+    │   │   └── SearchViewModel.kt      // Holds distance slider state, blood group filter state
+    │   ├── list/
+    │   │   ├── DonorListScreen.kt
+    │   │   └── DonorListViewModel.kt
+    │   └── profile/
+    │       ├── DonorProfileScreen.kt   // Detailed view of specific donor
+    │       └── DonorProfileViewModel.kt
+    │
+    ├── feature_emergency/              // Requesting Blood
+    │   ├── create_request/
+    │   │   ├── EmergencyRequestScreen.kt
+    │   │   └── EmergencyRequestViewModel.kt
+    │   ├── success/
+    │   │   └── RequestSentScreen.kt    // Pure UI, no ViewModel needed
+    │   └── my_requests/
+    │       ├── MyRequestsScreen.kt     // Contains Tabs (Active, Completed, Cancelled)
+    │       └── MyRequestsViewModel.kt
+    │
+    ├── feature_bloodbanks/             // Blood Bank directory and map
+    │   ├── list/
+    │   │   ├── BloodBanksScreen.kt
+    │   │   └── BloodBanksViewModel.kt
+    │   └── map/
+    │       ├── MapViewScreen.kt        // Implements Google Maps Compose
+    │       └── MapViewModel.kt         // Fetches pin coordinates
+    │
+    ├── feature_notifications/          // Activity alerts
+    │   ├── NotificationsScreen.kt
+    │   ├── NotificationItem.kt         // Specific UI for unread/read alerts
+    │   └── NotificationsViewModel.kt
+    │
+    └── feature_profile/                // User settings and history
+        ├── main/
+        │   ├── ProfileScreen.kt        // The menu list view
+        │   └── ProfileViewModel.kt
+        ├── edit_profile/
+        │   ├── EditProfileScreen.kt
+        │   └── EditProfileViewModel.kt
+        ├── history/
+        │   ├── DonationHistoryScreen.kt
+        │   ├── DonationTimelineItem.kt // The vertical line/dot UI component
+        │   └── HistoryViewModel.kt
+        ├── saved/
+        │   └── SavedDonorsScreen.kt    // List of bookmarked donors
+        └── settings/
+            ├── SettingsScreen.kt       // Push notification toggles, etc.
+            ├── HelpSupportScreen.kt
+            └── AboutUsScreen.kt

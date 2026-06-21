@@ -1,0 +1,185 @@
+package com.example.bloodlink.presentation.feature_home
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.bloodlink.R
+
+@Composable
+fun HomeScreen(
+    onNavigateToSearch: () -> Unit,
+    onNavigateToEmergency: () -> Unit,
+    onNavigateToBloodBanks: () -> Unit,
+    onNavigateToMyRequests: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFFFAFAFA))
+            .verticalScroll(rememberScrollState())
+    ) {
+        // Top Red Header Section
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = Color(0xFFE62129),
+                    shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
+                )
+                .padding(horizontal = 24.dp, vertical = 32.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(text = "Hello, Rajesh 👋", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = "Be a hero, donate blood", color = Color.White, fontSize = 14.sp)
+                }
+                Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = "Notifications",
+                    tint = Color.White
+                )
+            }
+        }
+
+        // Overlapping Main Action Cards
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset(y = (-30).dp)
+                .padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            MainActionCard(
+                title = "I Want to\nDonate",
+                subtitle = "Help someone in need",
+                iconTint = Color(0xFFE62129),
+                modifier = Modifier.weight(1f)
+            )
+            MainActionCard(
+                title = "I Need\nBlood",
+                subtitle = "Request blood\nin emergency",
+                iconTint = Color(0xFFE62129),
+                modifier = Modifier.weight(1f),
+                onClick = onNavigateToEmergency
+            )
+        }
+
+        // Impact Section
+        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+            Text(text = "Your Impact", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                ImpactItem(value = "2", label = "Donations", valueColor = Color(0xFF4CAF50))
+                ImpactItem(value = "5", label = "Lives Saved", valueColor = Color(0xFFE62129))
+                ImpactItem(value = "120", label = "Points", valueColor = Color(0xFFE62129))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Quick Actions Section
+        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+            Text(text = "Quick Actions", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                QuickActionItem(iconRes = android.R.drawable.ic_menu_search, label = "Search Donors", onClick = onNavigateToSearch)
+                QuickActionItem(iconRes = android.R.drawable.ic_menu_mapmode, label = "Blood Banks", onClick = onNavigateToBloodBanks)
+                QuickActionItem(iconRes = android.R.drawable.ic_dialog_alert, label = "Emergency", onClick = onNavigateToEmergency)
+                QuickActionItem(iconRes = android.R.drawable.ic_menu_recent_history, label = "My Requests", onClick = onNavigateToMyRequests)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+@Composable
+fun MainActionCard(title: String, subtitle: String, iconTint: Color, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
+    Card(
+        modifier = modifier.clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Box(
+                modifier = Modifier.size(40.dp).background(Color(0xFFFFEBEE), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                // Placeholder for blood drop icon
+                Text("🩸", fontSize = 20.sp)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = subtitle, color = Color.Gray, fontSize = 12.sp)
+        }
+    }
+}
+
+@Composable
+fun ImpactItem(value: String, label: String, valueColor: Color) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.width(100.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 16.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = value, color = valueColor, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = label, color = Color.Gray, fontSize = 12.sp)
+        }
+    }
+}
+
+@Composable
+fun QuickActionItem(iconRes: Int, label: String, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .background(Color.White, CircleShape)
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(painter = painterResource(id = iconRes), contentDescription = label, tint = Color(0xFF0D47A1))
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+    }
+}

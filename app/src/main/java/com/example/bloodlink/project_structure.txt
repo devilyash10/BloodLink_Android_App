@@ -1,0 +1,139 @@
+NOTES
+<a target="_blank" href="https://icons8.com/icon/17949/google">Google</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a>
+<a target="_blank" href="https://icons8.com/icon/95294/apple-inc">Apple</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+com.bloodlink.app
+│
+├── BloodLinkApplication.kt       // Application class, annotated with @HiltAndroidApp
+├── MainActivity.kt               // Single Activity entry point, sets up Compose Content
+│
+├── core/                         // App-wide utilities, constants, and theme
+│   ├── theme/
+│   │   ├── Color.kt              // Primary Red, surfaces, text colors
+│   │   ├── Theme.kt              // MaterialTheme wrapper (BloodLinkTheme)
+│   │   ├── Type.kt               // Typography definitions
+│   │   └── Shape.kt              // Corner radius definitions for buttons/cards
+│   ├── navigation/
+│   │   ├── NavGraph.kt           // NavHost, defines all composable routes
+│   │   └── Screen.kt             // Sealed class containing route strings (e.g., "home", "login")
+│   └── utils/
+│       ├── Constants.kt          // Global constants (e.g., animation durations, map defaults)
+│       └── UiState.kt            // Sealed interface (Loading, Success<T>, Error) for ViewModels
+│
+├── di/                           // Hilt Dependency Injection Modules
+│   ├── AppModule.kt              // Provides application-level dependencies (Context, Dispatchers)
+│   └── RepositoryModule.kt       // Binds BloodRepository interface to FakeBloodRepository
+│
+├── domain/                       // Enterprise business rules (No Android/Compose dependencies here)
+│   ├── model/                    // Pure data classes
+│   │   ├── User.kt
+│   │   ├── BloodRequest.kt
+│   │   ├── UrgencyLevel.kt
+│   │   └── RequestStatus.kt
+│   ├── repository/
+│   │   └── BloodRepository.kt    // Interface contract for data operations
+│   └── usecase/                  // Encapsulates single business actions (Optional but recommended)
+│       ├── GetNearbyDonorsUseCase.kt
+│       ├── CreateEmergencyRequestUseCase.kt
+│       └── GetUserRequestsUseCase.kt
+│
+├── data/                         // Data layer (Implementations of Domain interfaces)
+│   ├── repository/
+│   │   └── FakeBloodRepository.kt // The dummy data class we created earlier
+│   ├── local/                    // (Placeholder) Room Database DAOs/Entities if needed later
+│   └── remote/                   // (Placeholder) Firebase/DTO classes for later integration
+│
+└── presentation/                 // UI Layer (Compose screens and ViewModels)
+    │
+    ├── components/               // Reusable global UI widgets
+    │   ├── BloodGroupDropdown.kt
+    │   ├── PrimaryRedButton.kt
+    │   ├── OutlinedInputField.kt
+    │   ├── CustomTopAppBar.kt
+    │   └── BottomNavigationBar.kt
+    │   ├── FilterBottomSheet.kt       <-- ADDED
+    │   ├── UrgencySelector.kt         <-- ADDED
+    │   ├── CustomTabBar.kt            <-- ADDED
+    │   └── DonationTimelineItem.kt    <-- ADDED
+    │
+    ├── splash/
+    │   └── SplashScreen.kt       // Logo animation, routing logic
+    │
+    ├── onboarding/
+    │   └── OnboardingScreen.kt   // Pager for "Together, we can save lives"
+    │
+    ├── auth/                     // Authentication flows
+    │   ├── login/
+    │   │   ├── LoginScreen.kt
+    │   │   └── LoginViewModel.kt // Handles validation, delegates to AuthRepository
+    │   └── signup/
+    │   |    ├── SignUpScreen.kt
+    │   |    └── SignUpViewModel.kt
+    |   └── forgotpassword/            <-- ADDED
+    │        ├── ForgotPasswordScreen.kt
+    │        └── ForgotPasswordViewModel.kt
+    │
+    ├── home/
+    │   ├── HomeScreen.kt         // Dashboard with quick actions and stats
+    │   └── HomeViewModel.kt      // Fetches user impact points and basic profile
+    │
+    ├── emergency/                // Emergency Request Flow
+    │   ├── EmergencyRequestScreen.kt // Form screen
+    │   ├── RequestSentScreen.kt      // Success confirmation
+    │   └── EmergencyViewModel.kt
+    │
+    ├── requests/
+    │   ├── MyRequestsScreen.kt   // Tabbed view (Active, Completed, Cancelled)
+    │   └── RequestsViewModel.kt
+    │
+    ├── donors/                   // Donor Discovery
+    │   ├── SearchDonorsScreen.kt // Filter by Blood Group and Distance slider
+    │   ├── DonorListScreen.kt    // Displays nearby donors
+    │   ├── DonorProfileScreen.kt // Detailed view with "Request Blood" button
+    │   └── DonorsViewModel.kt    // Executes GetNearbyDonorsUseCase
+    │
+    ├── bloodbanks/
+    │   ├── BloodBanksScreen.kt   // List view of blood banks with open/close status
+    │   └── BloodBanksViewModel.kt
+    │
+    ├── map/
+    │   ├── MapViewScreen.kt      // Google Maps implementation with custom markers
+    │   └── MapViewModel.kt
+    │
+    ├── notifications/
+    │   ├── NotificationsScreen.kt// List of alerts (Acceptances, Reminders)
+    │   └── NotificationsViewModel.kt
+    │
+    └── profile/
+        ├── ProfileScreen.kt      // Settings, Logout, basic info
+        ├── DonationHistoryScreen.kt// Timeline view of past donations
+        └── ProfileViewModel.kt
+        ├── EditProfileScreen.kt       <-- ADDED
+        ├── SavedDonorsScreen.kt       <-- ADDED
+        ├── SettingsScreen.kt          <-- ADDED
+        ├── HelpSupportScreen.kt       <-- ADDED
+        └── AboutUsScreen.kt           <-- ADDED
+        ├── EditProfileViewModel.kt    <-- ADDED
+        ├── SavedDonorsViewModel.kt    <-- ADDED
+        ├── SettingsViewModel.kt       <-- ADDED
+        ├── HelpSupportViewModel.kt    <-- ADDED
+        └── AboutUsViewModel.kt        <-- ADDED
+
