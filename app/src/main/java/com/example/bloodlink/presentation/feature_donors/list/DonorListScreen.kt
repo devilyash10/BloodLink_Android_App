@@ -3,16 +3,20 @@ package com.example.bloodlink.presentation.feature_donors.list
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.bloodlink.presentation.components.cards.DonorListItemCard
 import com.example.bloodlink.presentation.components.common.CustomTopAppBar
 
@@ -20,8 +24,12 @@ import com.example.bloodlink.presentation.components.common.CustomTopAppBar
 fun DonorListScreen(
     onNavigateBack: () -> Unit,
     onDonorClick: (String) -> Unit, // Pass donor ID
+    viewModel: DonorListViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
+
+    val donors by viewModel.donorList.collectAsState()
+
     Column(
         modifier = modifier.fillMaxSize().background(Color(0xFFFAFAFA))
     ) {
@@ -56,21 +64,15 @@ fun DonorListScreen(
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // In reality, this will be a items(donorList) loop
-            item {
-                DonorListItemCard(name = "Rahul Sharma", bloodGroup = "O+", distanceKm = "2.4", isAvailable = true, onClick = { onDonorClick("1") })
-            }
-            item {
-                DonorListItemCard(name = "Ankita Patel", bloodGroup = "O+", distanceKm = "3.1", isAvailable = true, onClick = { onDonorClick("2") })
-            }
-            item {
-                DonorListItemCard(name = "Amit Verma", bloodGroup = "O+", distanceKm = "4.5", isAvailable = true, onClick = { onDonorClick("3") })
-            }
-            item {
-                DonorListItemCard(name = "Neha Singh", bloodGroup = "O+", distanceKm = "5.2", isAvailable = false, onClick = { onDonorClick("4") })
-            }
-            item {
-                DonorListItemCard(name = "Vikram Reddy", bloodGroup = "O+", distanceKm = "6.8", isAvailable = true, onClick = { onDonorClick("5") })
+            // This is the preferred way to iterate over lists in LazyColumn
+            items(donors) { donor ->
+                DonorListItemCard(
+                    name = donor.fullName,
+                    bloodGroup = donor.bloodGroup,
+                    distanceKm = donor.distanceKm.toString(),
+                    isAvailable = donor.isAvailableAsDonor,
+                    onClick = { onDonorClick(donor.id) }
+                )
             }
         }
     }

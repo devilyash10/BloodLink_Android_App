@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.bloodlink.presentation.components.buttons.PrimaryRedButton
 import com.example.bloodlink.presentation.components.common.CustomTopAppBar
 import com.example.bloodlink.presentation.components.common.UrgencyToggle
@@ -26,6 +27,7 @@ import com.example.bloodlink.presentation.components.inputs.StandardTextField
 fun EmergencyRequestScreen(
     onNavigateBack: () -> Unit,
     onSendRequest: () -> Unit,
+    viewModel: EmergencyRequestViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
     var hospitalLocation by remember { mutableStateOf("Apollo Hospital, Bangalore") }
@@ -147,7 +149,18 @@ fun EmergencyRequestScreen(
 
             PrimaryRedButton(
                 text = "Send Request",
-                onClick = onSendRequest,
+                onClick = {
+                    // 1. Call the function with your current state values
+                    viewModel.submitRequest(
+                        bloodGroup = bloodGroup,
+                        location = hospitalLocation,
+                        urgency = urgencyLevel,
+                        notes = additionalNotes
+                    )
+
+                    // 2. Trigger the navigation callback
+                    onSendRequest()
+                },
                 modifier = Modifier.fillMaxWidth()
             )
 

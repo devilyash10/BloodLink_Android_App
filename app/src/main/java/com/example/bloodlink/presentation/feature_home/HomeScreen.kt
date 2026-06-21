@@ -11,15 +11,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.bloodlink.R
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun HomeScreen(
@@ -27,12 +28,22 @@ fun HomeScreen(
     onNavigateToEmergency: () -> Unit,
     onNavigateToBloodBanks: () -> Unit,
     onNavigateToMyRequests: () -> Unit,
+    viewModel: HomeViewModel = hiltViewModel(), // INJECT THE VIEWMODEL HERE
     modifier: Modifier = Modifier
 ) {
+    // Observe the user data from the ViewModel
+    val user by viewModel.userState.collectAsState()
+
+    // Dynamically calculate stats (1 donation = 3 lives saved, 50 points)
+    val donations = user?.totalDonations ?: 0
+    val livesSaved = donations * 3
+    val points = donations * 50
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFFFAFAFA))
+            .systemBarsPadding() // Ensures UI doesn't overlap the status bar!
             .verticalScroll(rememberScrollState())
     ) {
         // Top Red Header Section
@@ -51,7 +62,9 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(text = "Hello, Rajesh 👋", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    // DYNAMIC NAME HERE!
+                    val firstName = user?.fullName?.substringBefore(" ") ?: "Loading"
+                    Text(text = "Hello, $firstName 👋", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(text = "Be a hero, donate blood", color = Color.White, fontSize = 14.sp)
                 }
@@ -86,7 +99,7 @@ fun HomeScreen(
             )
         }
 
-        // Impact Section
+        // Impact Section - DYNAMIC DATA HERE!
         Column(modifier = Modifier.padding(horizontal = 24.dp)) {
             Text(text = "Your Impact", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
@@ -94,9 +107,9 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                ImpactItem(value = "2", label = "Donations", valueColor = Color(0xFF4CAF50))
-                ImpactItem(value = "5", label = "Lives Saved", valueColor = Color(0xFFE62129))
-                ImpactItem(value = "120", label = "Points", valueColor = Color(0xFFE62129))
+                ImpactItem(value = "$donations", label = "Donations", valueColor = Color(0xFF4CAF50))
+                ImpactItem(value = "$livesSaved", label = "Lives Saved", valueColor = Color(0xFFE62129))
+                ImpactItem(value = "$points", label = "Points", valueColor = Color(0xFFE62129))
             }
         }
 
@@ -117,9 +130,10 @@ fun HomeScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(80.dp)) // Added space so Bottom Nav doesn't hide content!
     }
 }
+
 
 @Composable
 fun MainActionCard(title: String, subtitle: String, iconTint: Color, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
