@@ -2,11 +2,14 @@ package com.example.bloodlink.domain.model
 
 data class BloodRequest(
     val requestId: String,
+    val patientName: String,     // NEW
+    val bloodGroup: String,
     val hospitalName: String,
     val locationArea: String,
-    val bloodGroup: String,
     val urgencyLevel: UrgencyLevel,
-    val status: RequestStatus,
+    val unitsRequired: Int,      // NEW
+    val additionalNotes: String, // NEW
+    val timeAgo: String,
     val responsesCount: Int,
-    val timeAgo: String
+    val status: RequestStatus
 )

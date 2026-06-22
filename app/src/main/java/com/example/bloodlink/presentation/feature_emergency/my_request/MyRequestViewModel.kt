@@ -33,12 +33,22 @@ class MyRequestsViewModel @Inject constructor(
                 repository.getMyRequests().collect { requests ->
                     _allRequests.value = requests
                     _filteredRequests.value = requests // Default to showing all
+
+                    // 1. Turn off loading the exact moment we get our first response from Firebase
+                    _isLoading.value = false
+
+                    // 2. Handle the empty state right here
+                    if (requests.isEmpty()) {
+                        _errorMessage.value = "No requests found"
+                    } else {
+                        _errorMessage.value = null // Clear the message if they add a request later!
+                    }
                 }
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to load requests"
-            } finally {
-                _isLoading.value = false
+                _isLoading.value = false // Keep this here in case Firebase crashes before connecting
             }
+            // Notice we completely removed the 'finally' block!
         }
     }
 

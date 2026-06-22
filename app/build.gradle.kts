@@ -82,7 +82,13 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler) // Using KSP here too!
 
-    implementation(platform("com.google.firebase:firebase-bom:34.15.0"))
+    // 1. The BoM goes first (It controls all the versions below it)
+    implementation(platform("com.google.firebase:firebase-bom:32.8.0"))
+
+    // 2. Add the libraries WITHOUT version numbers and WITHOUT the "-ktx" suffix
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+
     implementation("com.google.firebase:firebase-analytics")
 }
 

@@ -28,8 +28,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.bloodlink.presentation.feature_settings.ProfileViewModel
+import com.example.bloodlink.presentation.feature_profile.main.ProfileViewModel
+
 
 @Composable
 fun ProfileScreen(
@@ -37,48 +40,59 @@ fun ProfileScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToAboutUs: () -> Unit,
     onLogOut: () -> Unit,
-    viewModel: ProfileViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier
+    viewModel: ProfileViewModel = hiltViewModel()
 ) {
-    val user by viewModel.currentUser.collectAsState()
-    val context = LocalContext.current // Used for Toast messages
+    // 1. Missing Context (fixes the Toast errors)
+    val context = LocalContext.current
 
-    // State to show/hide the Logout Dialog
+    // 2. Missing User State (fixes the user?.bloodGroup and user?.fullName errors)
+    val user by viewModel.currentUser.collectAsState()
+
+    // 3. UI State for showing/hiding the Dialog
     var showLogoutDialog by remember { mutableStateOf(false) }
 
-    // --- LOGOUT DIALOG ---
+    // 4. ViewModel State
+    val logoutEvent by viewModel.logoutEvent.collectAsState()
+
+    // 5. Watch for successful logout from the ViewModel
+    LaunchedEffect(logoutEvent) {
+        if (logoutEvent) {
+            onLogOut() // Navigates away when Firebase confirms the logout
+        }
+    }
+
+    // --- THE DIALOG ---
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
-            title = { Text(text = "Log Out", fontWeight = FontWeight.Bold) },
+            title = { Text("Log Out") },
             text = { Text("Are you sure you want to log out of your account?") },
             confirmButton = {
                 TextButton(
                     onClick = {
                         showLogoutDialog = false
-                        viewModel.logOut()
-                        onLogOut()
+                        viewModel.logout() // Tell the ViewModel to do the heavy lifting!
                     }
                 ) {
-                    Text("Log Out", color = Color(0xFFE62129), fontWeight = FontWeight.Bold)
+                    Text("Yes, Log Out", color = Color.Red)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {
                     Text("Cancel", color = Color.Gray)
                 }
-            },
-            containerColor = Color.White
+            }
         )
     }
 
+    // --- MAIN UI (Your Exact Design) ---
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFFAFAFA))
             .verticalScroll(rememberScrollState())
     ) {
-        // --- HEADER SECTION (Unchanged) ---
+        // --- HEADER SECTION ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -135,7 +149,7 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- LOGOUT BUTTON (Now triggers dialog) ---
+            // --- LOGOUT BUTTON (Triggers dialog) ---
             Button(
                 onClick = { showLogoutDialog = true }, // Opens Dialog instead of logging out directly
                 modifier = Modifier.fillMaxWidth(),

@@ -26,6 +26,7 @@ fun MyRequestScreen(
     onNavigateBack: () -> Unit,
     onCreateNewRequest: () -> Unit, // ADDED BACK TO FIX NAVHOST ERROR
     viewModel: MyRequestsViewModel = hiltViewModel(),
+    onNavigateToRequestDetail: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val requests by viewModel.filteredRequests.collectAsState()
@@ -120,7 +121,8 @@ fun MyRequestScreen(
                             urgencyLevel = request.urgencyLevel.name,
                             timeAgo = request.timeAgo,
                             responsesCount = request.responsesCount,
-                            status = request.status.name
+                            status = request.status.name,
+                            onClick = { onNavigateToRequestDetail(request.requestId) } // Pass the requestId to the callback}
                         )
                     }
                 }

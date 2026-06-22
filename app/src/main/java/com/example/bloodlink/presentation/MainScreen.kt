@@ -1,5 +1,6 @@
 package com.example.bloodlink.presentation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -8,46 +9,38 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.bloodlink.core.navigation.AppNavHost
-import com.example.bloodlink.core.navigation.Routes
 import com.example.bloodlink.presentation.components.common.BottomNavBar
 
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
+
+    // 1. Observe the current route
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Define which screens should show the bottom navigation bar
-    val screensWithBottomNav = listOf(
-        Routes.HOME,
-        Routes.REQUESTS,
-        Routes.NOTIFICATIONS,
-        Routes.PROFILE
+    // 2. Define exactly which screens get the bottom bar
+    val screensWithBottomBar = listOf(
+        "home",
+        "donor_list",
+        "blood_banks",
+        "my_requests",
+        "profile"
     )
 
-    val showBottomNav = screensWithBottomNav.contains(currentRoute)
+    // 3. Safe check (currentRoute can be null on app launch)
+    val showBottomBar = currentRoute in screensWithBottomBar
 
     Scaffold(
         bottomBar = {
-            if (showBottomNav) {
-                BottomNavBar(
-                    currentRoute = currentRoute,
-                    onNavigate = { route ->
-                        navController.navigate(route) {
-                            // Pop up to the start destination of the graph to avoid building up a large stack
-                            popUpTo(navController.graph.startDestinationId) { saveState = true }
-                            launchSingleTop = true // Avoid multiple copies of the same destination
-                            restoreState = true // Restore state when reselecting a previously selected item
-                        }
-                    }
-                )
+            if (showBottomBar) {
+                BottomNavBar(navController = navController)
             }
         }
     ) { paddingValues ->
-        // The AppNavHost handles loading the actual screens
-        AppNavHost(
-            navController = navController,
-            modifier = Modifier.padding(paddingValues)
-        )
+        // 4. Pass the padding so your screens don't get hidden behind the bar
+        Box(modifier = Modifier.padding(paddingValues)) {
+            AppNavHost(navController = navController)
+        }
     }
 }

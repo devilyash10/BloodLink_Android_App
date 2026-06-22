@@ -25,6 +25,7 @@ fun RequestItemCard(
     timeAgo: String,
     responsesCount: Int,
     status: String,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Dynamically choose colors based on urgency
@@ -42,6 +43,7 @@ fun RequestItemCard(
     }
 
     Card(
+        onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),

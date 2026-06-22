@@ -3,8 +3,13 @@ package com.example.bloodlink.di
 import android.content.Context
 import androidx.room.Room
 import com.example.bloodlink.data.local.BloodDatabase
-import com.example.bloodlink.data.repository.FakeBloodRepository
+import com.example.bloodlink.data.local.UserDao
+import com.example.bloodlink.data.repository.FirebaseAuthRepository
+import com.example.bloodlink.data.repository.FirebaseBloodRepository
+import com.example.bloodlink.domain.repository.AuthRepository
 import com.example.bloodlink.domain.repository.BloodRepository
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -16,6 +21,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
+    // --- LOCAL DATABASE (ROOM) ---
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): BloodDatabase {
@@ -27,12 +33,38 @@ object AppModule {
     }
 
     @Provides
-    fun provideUserDao(db: BloodDatabase) = db.userDao()
+    fun provideUserDao(db: BloodDatabase): UserDao = db.userDao()
+
+    // --- FIREBASE INSTANCES ---
     @Provides
     @Singleton
-    fun provideBloodRepository(): BloodRepository {
-        // We provide the Fake repository here.
-        // When we build the real Firebase one later, we ONLY have to change this one single line!
-        return FakeBloodRepository()
+    fun provideFirebaseAuth(): FirebaseAuth {
+        return FirebaseAuth.getInstance()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirebaseFirestore(): FirebaseFirestore {
+        return FirebaseFirestore.getInstance()
+    }
+
+    // --- REPOSITORY BINDING ---
+    @Provides
+    @Singleton
+    fun provideBloodRepository(
+        auth: FirebaseAuth,
+        firestore: FirebaseFirestore
+    ): BloodRepository {
+        // We have completely swapped FakeBloodRepository for FirebaseBloodRepository!
+        return FirebaseBloodRepository(auth, firestore)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAuthRepository(
+        auth: FirebaseAuth,
+        firestore: FirebaseFirestore
+    ): AuthRepository {
+        return FirebaseAuthRepository(auth, firestore)
     }
 }

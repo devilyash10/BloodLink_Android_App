@@ -19,20 +19,28 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.delay
 
 @Composable
 fun SplashScreen(
-    onNavigateNext: () -> Unit,
-    modifier: Modifier = Modifier
+    onNavigateToHome: () -> Unit,
+    onNavigateToOnboarding: () -> Unit
 ) {
     // Simulate loading delay
-    LaunchedEffect(key1 = true) {
-        delay(2000L)
-        onNavigateNext()
+    LaunchedEffect(Unit) {
+        delay(2000) // Show splash for 2 seconds
+
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        if (currentUser != null) {
+            onNavigateToHome() // Already logged in, skip auth!
+        } else {
+            onNavigateToOnboarding() // Not logged in, show onboarding!
+        }
     }
 
     Box(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
@@ -96,8 +104,8 @@ fun SplashScreen(
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun SplashScreenPreview() {
-    SplashScreen(onNavigateNext = {})
-}
+//@Preview(showBackground = true)
+//@Composable
+//fun SplashScreenPreview() {
+//    SplashScreen(onNavigateNext = {})
+//}

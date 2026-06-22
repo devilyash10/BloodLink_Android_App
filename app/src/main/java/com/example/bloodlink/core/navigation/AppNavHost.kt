@@ -1,16 +1,11 @@
 package com.example.bloodlink.core.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.bloodlink.presentation.feature_auth.login.LoginScreen
 import com.example.bloodlink.presentation.feature_auth.onboarding.OnboardingScreen
 import com.example.bloodlink.presentation.feature_auth.signup.SignUpScreen
@@ -33,192 +28,151 @@ import com.example.bloodlink.presentation.feature_settings.SettingsScreen
 
 @Composable
 fun AppNavHost(
-    navController: NavHostController,
+    navController: NavHostController = rememberNavController(),
     modifier: Modifier = Modifier
 ) {
     NavHost(
         navController = navController,
-        startDestination = Routes.SPLASH,
+        startDestination = "splash_screen",
         modifier = modifier
     ) {
+        // --- SPLASH & ONBOARDING ---
+        composable("splash_screen") {
+            SplashScreen(
+                onNavigateToHome = { navController.navigate("home") { popUpTo("splash_screen") { inclusive = true } } },
+                onNavigateToOnboarding = { navController.navigate("onboarding") { popUpTo("splash_screen") { inclusive = true } } }
+            )
+        }
 
-        // --- AUTHENTICATION FLOW ---
-        composable(Routes.SPLASH) {
-            SplashScreen(onNavigateNext = {
-                navController.navigate(Routes.ONBOARDING) {
-                    popUpTo(Routes.SPLASH) { inclusive = true } // Remove splash from backstack
-                }
-            })
+        composable("onboarding") {
+            OnboardingScreen(
+                onNavigateNext = { navController.navigate("login") { popUpTo("onboarding") { inclusive = true } } }
+            )
         }
-        composable(Routes.ONBOARDING) {
-            OnboardingScreen(onNavigateNext = {
-                navController.navigate(Routes.LOGIN) {
-                    popUpTo(Routes.ONBOARDING) { inclusive = true }
-                }
-            })
-        }
-        composable(Routes.LOGIN) {
+
+        // --- AUTHENTICATION ---
+        composable("login") {
             LoginScreen(
-                onNavigate = { route ->
-                    navController.navigate(route) {
-                        // This clears the backstack so the user can't press "Back" to return to Login
-                        popUpTo(Routes.LOGIN) { inclusive = true }
-                    }
-                }
-            )
-        }
-        composable(Routes.SIGN_UP) {
-            SignUpScreen(
-                onNavigateToLogin = { navController.navigate(Routes.LOGIN) },
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateToHome = { navController.navigate("home") { popUpTo("login") { inclusive = true } } },
+                onNavigateToSignUp = { navController.navigate("signup") }
             )
         }
 
-        // --- MAIN APP FLOW ---
+        composable("signup") {
+            SignUpScreen(
+                onNavigateToHome = { navController.navigate("home") { popUpTo("signup") { inclusive = true } } },
+                onNavigateToLogin = { navController.popBackStack() }
+            )
+        }
+
+        // --- MAIN TABS (Bottom Bar Routes) ---
         composable("home") {
             HomeScreen(
                 onNavigateToSearch = { navController.navigate("donor_list") },
                 onNavigateToEmergency = { navController.navigate("emergency_request") },
-
-                // FIX: Make sure this navigates to the blood_banks placeholder!
                 onNavigateToBloodBanks = { navController.navigate("blood_banks") },
+                onNavigateToMyRequests = { navController.navigate("my_requests") },
+                onNavigateToRequestDetail = { requestId -> navController.navigate("request_detail/$requestId") }
+            )
+        }
 
-                onNavigateToMyRequests = { navController.navigate("my_requests") }
-            )
-        }
-        composable(Routes.REQUESTS) {
-            MyRequestScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onCreateNewRequest = { navController.navigate(Routes.CREATE_REQUEST) }
-            )
-        }
-        composable(Routes.NOTIFICATIONS) {
-            NotificationsScreen(onNavigateBack = { navController.popBackStack() })
-        }
-        // Inside your NavHost block:
-        composable("profile") {
-            ProfileScreen(
-                onNavigateToEditProfile = { navController.navigate("edit_profile") },
-                onNavigateToSettings = { navController.navigate("settings") },
-                onNavigateToAboutUs = { navController.navigate("about_us") },
-                onLogOut = {
-                    navController.navigate("onboarding") { // Or "login" depending on your start screen
-                        popUpTo(0) { inclusive = true } // This clears the backstack so they can't hit "back" into the app
-                    }
-                }
-            )
-        }
-        // --- SECONDARY SCREENS ---
-        composable(Routes.CREATE_REQUEST) {
-            EmergencyRequestScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onSendRequest = { navController.navigate(Routes.REQUEST_SENT) }
-            )
-        }
-        composable(Routes.REQUEST_SENT) {
-            RequestSentScreen(
-                requestId = "#REQ98765",
-                onViewRequestsClick = {
-                    navController.navigate(Routes.REQUESTS) {
-                        popUpTo(Routes.HOME)
-                    }
-                },
-                onBackToHomeClick = {
-                    navController.navigate(Routes.HOME) {
-                        popUpTo(Routes.HOME) { inclusive = true }
-                    }
-                }
-            )
-        }
-        composable(Routes.SEARCH_DONORS) {
-            SearchDonorsScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onSearchClicked = { navController.navigate(Routes.DONOR_LIST) }
-            )
-        }
-        composable(Routes.DONOR_LIST) {
+        composable("donor_list") {
             DonorListScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onDonorClick = { donorId -> navController.navigate("donor_profile/$donorId")}
+                onDonorClick = { donorId -> navController.navigate("donor_profile/$donorId") }
             )
         }
-        composable(Routes.DONOR_PROFILE) { backStackEntry ->
-            // You can extract the donorId here when we implement ViewModels
-            val donorId = backStackEntry.arguments?.getString("donorId")
-            DonorProfileScreen(
-                donorId = donorId ?: "",
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-        // --- BLOOD BANKS SECTION ---
+
         composable("blood_banks") {
-            // Note: Update imports if Android Studio complains!
-            com.example.bloodlink.presentation.feature_bloodbanks.list.BloodBanksScreen(
+            BloodBanksScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToMap = { navController.navigate("blood_banks_map") }
-            )
-        }
-
-        composable("blood_banks_map") {
-            com.example.bloodlink.presentation.feature_bloodbanks.map.MapViewScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToList = { navController.popBackStack() } // Pops the map off to return to list
-            )
-        }
-        composable(Routes.DONATION_HISTORY) {
-            DonationHistoryScreen(onNavigateBack = { navController.popBackStack() })
-        }
-        composable("settings") {
-            SettingsScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        composable("edit_profile") {
-            EditProfileScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        composable("about_us") {
-            AboutUsScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        composable("emergency_request") {
-            EmergencyRequestScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onSendRequest = {
-                    // After sending, go to My Requests and clear the emergency screen from the backstack
-                    navController.navigate("my_requests") {
-                        popUpTo("home")
-                    }
-                }
             )
         }
 
         composable("my_requests") {
             MyRequestScreen(
                 onNavigateBack = { navController.popBackStack() },
+                onNavigateToRequestDetail = { requestId -> navController.navigate("request_detail/$requestId") },
                 onCreateNewRequest = { navController.navigate("emergency_request") }
             )
         }
 
-//        composable("blood_banks") {
-//            // Placeholder until we build the Map screen
-//            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-//                Text("Blood Banks Map Coming Soon", fontSize = 18.sp, color = Color.Gray)
-//            }
-//        }
+        composable("profile") {
+            ProfileScreen(
+                onNavigateToEditProfile = { navController.navigate("edit_profile") },
+                onNavigateToSettings = { navController.navigate("settings") },
+                onNavigateToAboutUs = { navController.navigate("about_us") },
+                onLogOut = {
+                    navController.navigate("login") { popUpTo(0) { inclusive = true } }
+                }
+            )
+        }
+
+        // --- SECONDARY SCREENS ---
+        composable("emergency_request") {
+            EmergencyRequestScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onSendRequest = { navController.navigate("request_sent") }
+            )
+        }
+
+        composable("request_sent") {
+            RequestSentScreen(
+                requestId = "#REQ98765", // We can make this dynamic later
+                onViewRequestsClick = { navController.navigate("my_requests") { popUpTo("home") } },
+                onBackToHomeClick = { navController.navigate("home") { popUpTo("home") { inclusive = true } } }
+            )
+        }
+
+        composable("request_detail/{requestId}") { backStackEntry ->
+            val id = backStackEntry.arguments?.getString("requestId") ?: ""
+            com.example.bloodlink.presentation.feature_requests.detail.RequestDetailScreen(
+                requestId = id,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
 
         composable("donor_profile/{donorId}") { backStackEntry ->
-            // Extract the donorId from the route
             val donorId = backStackEntry.arguments?.getString("donorId") ?: ""
             DonorProfileScreen(
                 donorId = donorId,
                 onNavigateBack = { navController.popBackStack() }
             )
+        }
+
+        composable("blood_banks_map") {
+            MapViewScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToList = { navController.popBackStack() }
+            )
+        }
+
+        composable("search_donors") {
+            SearchDonorsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onSearchClicked = { navController.navigate("donor_list") }
+            )
+        }
+
+        composable("notifications") {
+            NotificationsScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable("donation_history") {
+            DonationHistoryScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable("settings") {
+            SettingsScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable("edit_profile") {
+            EditProfileScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable("about_us") {
+            AboutUsScreen(onNavigateBack = { navController.popBackStack() })
         }
     }
 }
