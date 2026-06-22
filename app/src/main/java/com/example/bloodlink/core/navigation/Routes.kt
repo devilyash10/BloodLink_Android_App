@@ -22,6 +22,13 @@ object Routes {
     const val MAP_VIEW = "map_view"
     const val REQUEST_SENT = "request_sent"
     const val DONATION_HISTORY = "donation_history"
+    const val SETTINGS = "settings"
+    const val ABOUT_US = "about_us"
+    const val EDIT_PROFILE = "edit_profile"
+    const val REQUEST_DETAIL = "request_detail"
+    const val DONOR_DETAIL = "donor_detail"
+
+
 
     // Helper to create donor profile route
     fun createDonorProfileRoute(donorId: String) = "donor_profile/$donorId"

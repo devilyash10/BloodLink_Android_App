@@ -72,4 +72,9 @@ class FakeBloodRepository : BloodRepository {
         delay(600)
         emit(dummyRequests)
     }
+
+    override suspend fun getDonorById(donorId: String): User? {
+        // Find the user in your dummy list whose ID matches the clicked ID
+        return dummyDonors.find { it.id == donorId }
+    }
 }

@@ -10,4 +10,6 @@ interface BloodRepository {
     fun getNearbyDonors(bloodGroup: String, radiusKm: Float): Flow<List<User>>
     fun getNearbyBloodBanks(): Flow<List<BloodBank>>
     fun getMyRequests(): Flow<List<BloodRequest>>
+
+    suspend fun getDonorById(donorId: String): User?
 }

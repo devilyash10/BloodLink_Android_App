@@ -29,7 +29,7 @@ class DonorListViewModel @Inject constructor(
     private fun fetchDonors(bloodGroup: String, radiusKm: Float) {
         viewModelScope.launch {
             repository.getNearbyDonors(bloodGroup, radiusKm).collect { donors ->
-                _donorList.value = donors
+                _donorList.value = donors.sortedBy { it.distanceKm }
             }
         }
     }
