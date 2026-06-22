@@ -35,10 +35,34 @@ class FakeBloodRepository : BloodRepository {
     )
 
     // Mock Blood Banks matching your "Blood Banks Screen" design
-    private val dummyBloodBanks = listOf(
-        BloodBank("b_1", "Red Cross Blood Bank", "Koramangala", 1.2, true, "Closes 8 PM"),
-        BloodBank("b_2", "Jeevan Blood Bank", "HSR Layout", 2.5, true, "Closes 7 PM"),
-        BloodBank("b_3", "Narayana Blood Bank", "BTM Layout", 3.8, true, "Closes 8 PM")
+    val dummyBloodBanks = listOf(
+        BloodBank(
+            id = "bb_1",
+            name = "Apollo Hospital Blood Bank",
+            address = "Bannerghatta Road, Bangalore",
+            distanceKm = 2.4,
+            phoneNumber = "+91 80000 12345",
+            isOpen = true,
+            availableBloodGroups = listOf("A+", "O+", "AB+")
+        ),
+        BloodBank(
+            id = "bb_2",
+            name = "Red Cross Society",
+            address = "Ashoka Pillar, Bangalore",
+            distanceKm = 4.1,
+            phoneNumber = "+91 80000 54321",
+            isOpen = true,
+            availableBloodGroups = listOf("O-", "B+", "A-", "AB-")
+        ),
+        BloodBank(
+            id = "bb_3",
+            name = "Fortis Healthcare",
+            address = "Cunningham Road, Bangalore",
+            distanceKm = 6.8,
+            phoneNumber = "+91 80000 98765",
+            isOpen = false,
+            availableBloodGroups = listOf("B-", "O+")
+        )
     )
 
     // Mock Requests matching your "My Requests Screen" design

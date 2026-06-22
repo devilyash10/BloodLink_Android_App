@@ -1,147 +1,210 @@
 package com.example.bloodlink.presentation.feature_bloodbanks.list
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Directions
+import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.bloodlink.domain.model.BloodBank
 import com.example.bloodlink.presentation.components.common.CustomTopAppBar
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BloodBanksScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToMap: () -> Unit, // Added Navigation for the Map
+    viewModel: BloodBanksViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.fillMaxSize().background(Color(0xFFFAFAFA))
-    ) {
-        CustomTopAppBar(
-            title = "Nearby Blood Banks",
-            onBackClick = onNavigateBack
-        )
+    val bloodBanks by viewModel.filteredBloodBanks.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
 
-        // Map Placeholder Container
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .background(Color(0xFFE0E0E0)), // Gray placeholder for the Google Map
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.Map, contentDescription = "Map View", tint = Color.Gray, modifier = Modifier.size(48.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Google Maps Integration", color = Color.DarkGray)
-            }
+    Scaffold(
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = onNavigateToMap,
+                containerColor = Color(0xFFE62129),
+                contentColor = Color.White,
+                icon = { Icon(Icons.Default.Map, contentDescription = "Map View") },
+                text = { Text("Map View", fontWeight = FontWeight.Bold) }
+            )
         }
-
-        // List of Blood Banks
-        LazyColumn(
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) { paddingValues ->
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(Color(0xFFFAFAFA))
         ) {
-            item {
-                BloodBankListItem(
-                    name = "Red Cross Blood Bank",
-                    distance = "1.2 KM",
-                    area = "Koramangala",
-                    isOpen = true,
-                    timeInfo = "Closes 8 PM"
+            CustomTopAppBar(title = "Blood Banks", onBackClick = onNavigateBack)
+
+            // Search Bar
+            Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { viewModel.onSearchQueryChange(it) },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Search by name or area...", color = Color.Gray) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFE62129),
+                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White
+                    ),
+                    singleLine = true
                 )
             }
-            item {
-                BloodBankListItem(
-                    name = "Jeevan Blood Bank",
-                    distance = "2.5 KM",
-                    area = "HSR Layout",
-                    isOpen = true,
-                    timeInfo = "Closes 7 PM"
-                )
-            }
-            item {
-                BloodBankListItem(
-                    name = "Narayana Blood Bank",
-                    distance = "3.8 KM",
-                    area = "BTM Layout",
-                    isOpen = true,
-                    timeInfo = "Closes 8 PM"
-                )
+
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color(0xFFE62129))
+                }
+            } else if (bloodBanks.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No blood banks found.", color = Color.Gray, fontSize = 16.sp)
+                }
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 80.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(bloodBanks) { bank ->
+                        ImprovedBloodBankCard(bloodBank = bank)
+                    }
+                }
             }
         }
     }
 }
 
-// Specialized List Item component to match this specific screen's design
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun BloodBankListItem(
-    name: String,
-    distance: String,
-    area: String,
-    isOpen: Boolean,
-    timeInfo: String
-) {
+fun ImprovedBloodBankCard(bloodBank: BloodBank) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), // Flat design
+        shape = RoundedCornerShape(16.dp),
+        border = border(1.dp, Color(0xFFEEEEEE), RoundedCornerShape(16.dp)) // Subtle border
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Location Pin Icon Icon
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(Color(0xFFFFEBEE), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFFE62129))
-            }
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header: Icon, Name, and Status
+            Row(verticalAlignment = Alignment.Top) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(Color(0xFFFFEBEE), RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.LocalHospital, contentDescription = null, tint = Color(0xFFE62129), modifier = Modifier.size(24.dp))
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = bloodBank.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.Black)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = bloodBank.address, color = Color.Gray, fontSize = 13.sp, lineHeight = 18.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
 
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Details
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(text = "$distance • $area", color = Color.Gray, fontSize = 12.sp)
-                Spacer(modifier = Modifier.height(4.dp))
-                Row {
-                    Text(
-                        text = if (isOpen) "Open " else "Closed ",
-                        color = if (isOpen) Color(0xFF4CAF50) else Color(0xFFE62129),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(text = "• $timeInfo", color = Color.Gray, fontSize = 12.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(if (bloodBank.isOpen) Color(0xFF4CAF50) else Color.Gray)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (bloodBank.isOpen) "Open Now" else "Closed",
+                            color = if (bloodBank.isOpen) Color(0xFF4CAF50) else Color.Gray,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        Text(text = "  •  ${bloodBank.distanceKm} km", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    }
                 }
             }
 
-            // Call Button
-            IconButton(onClick = { /* TODO: Launch Phone Intent */ }) {
-                Icon(Icons.Default.Phone, contentDescription = "Call", tint = Color(0xFFE62129))
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = "Available Stock", fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                bloodBank.availableBloodGroups.forEach { group ->
+                    Box(
+                        modifier = Modifier
+                            .border(1.dp, Color(0xFFE62129).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(text = group, color = Color(0xFFE62129), fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Action Buttons
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(
+                    onClick = { /* TODO */ },
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.DarkGray),
+                    border = border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(12.dp)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Call", fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = { /* TODO */ },
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE62129)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Directions, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Directions", fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun BloodBanksScreenPreview() {
-    BloodBanksScreen(onNavigateBack = {})
-}
+// Helper for borders since ButtonDefaults.outlinedButtonBorder can be finicky
+fun border(width: androidx.compose.ui.unit.Dp, color: Color, shape: androidx.compose.ui.graphics.Shape) =
+    androidx.compose.foundation.BorderStroke(width, color)
+//
+//@Preview(showBackground = true)
+//@Composable
+//fun BloodBanksScreenPreview() {
+//    BloodBanksScreen(onNavigateBack = {})
+//}

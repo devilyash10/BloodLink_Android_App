@@ -150,12 +150,20 @@ fun AppNavHost(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        composable(Routes.BLOOD_BANKS) {
-            BloodBanksScreen(onNavigateBack = { navController.popBackStack() })
-            // Note: Add a button to navigate to MAP_VIEW from BloodBanksScreen if needed
+        // --- BLOOD BANKS SECTION ---
+        composable("blood_banks") {
+            // Note: Update imports if Android Studio complains!
+            com.example.bloodlink.presentation.feature_bloodbanks.list.BloodBanksScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToMap = { navController.navigate("blood_banks_map") }
+            )
         }
-        composable(Routes.MAP_VIEW) {
-            MapViewScreen(onNavigateBack = { navController.popBackStack() })
+
+        composable("blood_banks_map") {
+            com.example.bloodlink.presentation.feature_bloodbanks.map.MapViewScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToList = { navController.popBackStack() } // Pops the map off to return to list
+            )
         }
         composable(Routes.DONATION_HISTORY) {
             DonationHistoryScreen(onNavigateBack = { navController.popBackStack() })
@@ -197,12 +205,12 @@ fun AppNavHost(
             )
         }
 
-        composable("blood_banks") {
-            // Placeholder until we build the Map screen
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Blood Banks Map Coming Soon", fontSize = 18.sp, color = Color.Gray)
-            }
-        }
+//        composable("blood_banks") {
+//            // Placeholder until we build the Map screen
+//            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+//                Text("Blood Banks Map Coming Soon", fontSize = 18.sp, color = Color.Gray)
+//            }
+//        }
 
         composable("donor_profile/{donorId}") { backStackEntry ->
             // Extract the donorId from the route
