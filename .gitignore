@@ -42,3 +42,13 @@ google-services.json
 
 # Android Profiling
 *.hprof
+# Firebase Secret Key
+app/google-services.json
+
+# Local Mock Database Files
+venv/
+.venv/
+*.json
+# python files
+*.py
+env/
