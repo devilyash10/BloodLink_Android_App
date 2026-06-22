@@ -15,7 +15,7 @@ import com.example.bloodlink.presentation.feature_donors.list.DonorListScreen
 import com.example.bloodlink.presentation.feature_donors.profile.DonorProfileScreen
 import com.example.bloodlink.presentation.feature_donors.search.SearchDonorsScreen
 import com.example.bloodlink.presentation.feature_emergency.create_request.EmergencyRequestScreen
-import com.example.bloodlink.presentation.feature_emergency.my_requests.MyRequestsScreen
+import com.example.bloodlink.presentation.feature_emergency.my_request.MyRequestScreen
 import com.example.bloodlink.presentation.feature_emergency.success.RequestSentScreen
 import com.example.bloodlink.presentation.feature_home.HomeScreen
 import com.example.bloodlink.presentation.feature_notifications.NotificationsScreen
@@ -75,7 +75,7 @@ fun AppNavHost(
             )
         }
         composable(Routes.REQUESTS) {
-            MyRequestsScreen(
+            MyRequestScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onCreateNewRequest = { navController.navigate(Routes.CREATE_REQUEST) }
             )
