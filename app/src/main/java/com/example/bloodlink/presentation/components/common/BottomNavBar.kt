@@ -1,5 +1,6 @@
 package com.example.bloodlink.presentation.components.common
 
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Home
@@ -33,7 +34,7 @@ fun BottomNavBar(
     )
 
     NavigationBar(
-        modifier = modifier,
+        modifier = modifier.navigationBarsPadding(),
         containerColor = Color.White,
         contentColor = Color.Gray
     ) {

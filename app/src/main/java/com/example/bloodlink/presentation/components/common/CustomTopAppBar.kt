@@ -1,6 +1,7 @@
 package com.example.bloodlink.presentation.components.common
 
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.statusBarsPadding // IMPORT ADDED
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -32,6 +33,7 @@ fun CustomTopAppBar(
             titleContentColor = Color.Black,
             navigationIconContentColor = Color.Black
         ),
-        modifier = modifier
+        // THE FIX: This single line forces the App Bar below the battery/WiFi icons
+        modifier = modifier.statusBarsPadding()
     )
 }
