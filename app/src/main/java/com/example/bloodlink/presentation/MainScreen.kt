@@ -22,6 +22,7 @@ fun MainScreen() {
     // 2. Define exactly which screens get the bottom bar
     val screensWithBottomBar = listOf(
         "home",
+        //"search_donor",
         "donor_list",
         "blood_banks",
         "my_requests",
