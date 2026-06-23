@@ -46,4 +46,9 @@ interface BloodRepository {
     suspend fun getBloodBanks(): Result<List<BloodBank>>
     suspend fun getCurrentHospitalProfile(): Result<BloodBank>
     suspend fun updateHospitalInventory(newInventory: Map<String, Int>): Result<Unit>
+    //suspend fun createBloodRequest(request: BloodRequest): Result<Unit>
+    // Add this to your BloodRepository interface
+    suspend fun getUserBloodRequests(): kotlinx.coroutines.flow.Flow<List<BloodRequest>>
+    suspend fun markRequestFulfilled(requestId: String): Result<Unit>
+
 }

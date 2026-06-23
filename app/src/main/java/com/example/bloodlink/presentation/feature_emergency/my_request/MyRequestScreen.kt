@@ -31,8 +31,8 @@ import com.example.bloodlink.presentation.components.common.CustomTopAppBar
 fun MyRequestScreen(
     onNavigateBack: () -> Unit,
     onCreateNewRequest: () -> Unit,
-    viewModel: MyRequestsViewModel = hiltViewModel(),
     onNavigateToRequestDetail: (String) -> Unit,
+    viewModel: MyRequestsViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
     val requests by viewModel.filteredRequests.collectAsState()
@@ -82,11 +82,13 @@ fun MyRequestScreen(
                         selected = selectedTabIndex == index,
                         onClick = {
                             selectedTabIndex = index
-                            when(title) {
-                                "Active" -> viewModel.filterByStatus(RequestStatus.ACTIVE)
-                                "Completed" -> viewModel.filterByStatus(RequestStatus.COMPLETED)
-                                else -> viewModel.showAll()
+                            // Trigger the reactive ViewModel filter
+                            val filter = when(title) {
+                                "Active" -> RequestFilter.ACTIVE
+                                "Completed" -> RequestFilter.COMPLETED
+                                else -> RequestFilter.ALL
                             }
+                            viewModel.setFilter(filter)
                         },
                         text = {
                             Text(
@@ -109,7 +111,7 @@ fun MyRequestScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Default.Favorite, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(64.dp))
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(text = "You haven't made any requests yet.", color = Color.Gray, fontSize = 16.sp)
+                        Text(text = "No requests found for this category.", color = Color.Gray, fontSize = 16.sp)
                     }
                 }
             } else {
@@ -119,10 +121,11 @@ fun MyRequestScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(requests) { request ->
+                    items(requests, key = { it.requestId }) { request -> // Added key for better compose performance
                         MyRequestPremiumCard(
                             request = request,
-                            onClick = { onNavigateToRequestDetail(request.requestId) }
+                            onClick = { onNavigateToRequestDetail(request.requestId) },
+                            onMarkCompleted = { viewModel.markAsCompleted(request.requestId) }
                         )
                     }
                 }
@@ -131,9 +134,14 @@ fun MyRequestScreen(
     }
 }
 
-// --- Custom Premium Card for My Requests ---
 @Composable
-fun MyRequestPremiumCard(request: BloodRequest, onClick: () -> Unit) {
+fun MyRequestPremiumCard(
+    request: BloodRequest,
+    onClick: () -> Unit,
+    onMarkCompleted: () -> Unit
+) {
+    val isActive = request.status == RequestStatus.ACTIVE
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -143,22 +151,21 @@ fun MyRequestPremiumCard(request: BloodRequest, onClick: () -> Unit) {
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // Top Row: Blood Group & Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Blood Group Badge
                 Box(
                     modifier = Modifier
-                        .background(Color(0xFFE62129), RoundedCornerShape(8.dp))
+                        .background(if (isActive) Color(0xFFE62129) else Color.Gray, RoundedCornerShape(8.dp))
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(text = request.bloodGroup, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
 
-                // Status Badge
-                if (request.status == RequestStatus.COMPLETED) {
+                if (!isActive) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF388E3C), modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -193,7 +200,6 @@ fun MyRequestPremiumCard(request: BloodRequest, onClick: () -> Unit) {
             ) {
                 Text(text = "Responses Received", color = Color.DarkGray, fontSize = 14.sp)
 
-                // Highlight box changes color if heroes have responded!
                 Box(
                     modifier = Modifier
                         .background(
@@ -208,6 +214,21 @@ fun MyRequestPremiumCard(request: BloodRequest, onClick: () -> Unit) {
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
+                }
+            }
+
+            // THE UPGRADE: Action to close the request!
+            if (isActive) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = onMarkCompleted,
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF5F5F5), contentColor = Color(0xFF388E3C)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Mark as Completed", fontWeight = FontWeight.Bold)
                 }
             }
         }

@@ -179,45 +179,45 @@ class FirebaseBloodRepository @Inject constructor(
             null
         }
     }
-    override suspend fun createBloodRequest(
-        patientName: String,
-        bloodGroup: String,
-        hospitalName: String,
-        locationArea: String,
-        urgencyLevel: String,
-        unitsRequired: Int,
-        additionalNotes: String
-    ): Result<Unit> {
-        return try {
-            // 1. Ensure the user is logged in
-            val uid = auth.currentUser?.uid ?: throw Exception("User not authenticated.")
-
-            // 2. Ask Firestore to generate a fresh, unique Document ID
-            val newRequestRef = firestore.collection("blood_requests").document()
-
-            // 3. Map the data exactly to your Firestore schema
-            val requestData = hashMapOf(
-                "patientName" to patientName,
-                "bloodGroupNeeded" to bloodGroup,
-                "hospitalName" to hospitalName,
-                "hospitalId" to "pending_hospital_id", // Placeholder until you add real hospital picking
-                "locationArea" to locationArea,
-                "requesterId" to uid,
-                "urgencyLevel" to urgencyLevel,
-                "unitsRequired" to unitsRequired,
-                "additionalNotes" to additionalNotes,
-                "status" to "ACTIVE",
-                "responsesCount" to 0,
-                "createdAt" to com.google.firebase.Timestamp.now()
-            )
-
-            // 4. Save to database
-            newRequestRef.set(requestData).await()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+//    override suspend fun createBloodRequest(
+//        patientName: String,
+//        bloodGroup: String,
+//        hospitalName: String,
+//        locationArea: String,
+//        urgencyLevel: String,
+//        unitsRequired: Int,
+//        additionalNotes: String
+//    ): Result<Unit> {
+//        return try {
+//            // 1. Ensure the user is logged in
+//            val uid = auth.currentUser?.uid ?: throw Exception("User not authenticated.")
+//
+//            // 2. Ask Firestore to generate a fresh, unique Document ID
+//            val newRequestRef = firestore.collection("blood_requests").document()
+//
+//            // 3. Map the data exactly to your Firestore schema
+//            val requestData = hashMapOf(
+//                "patientName" to patientName,
+//                "bloodGroupNeeded" to bloodGroup,
+//                "hospitalName" to hospitalName,
+//                "hospitalId" to "pending_hospital_id", // Placeholder until you add real hospital picking
+//                "locationArea" to locationArea,
+//                "requesterId" to uid,
+//                "urgencyLevel" to urgencyLevel,
+//                "unitsRequired" to unitsRequired,
+//                "additionalNotes" to additionalNotes,
+//                "status" to "ACTIVE",
+//                "responsesCount" to 0,
+//                "createdAt" to com.google.firebase.Timestamp.now()
+//            )
+//
+//            // 4. Save to database
+//            newRequestRef.set(requestData).await()
+//            Result.success(Unit)
+//        } catch (e: Exception) {
+//            Result.failure(e)
+//        }
+//    }
 
 
     // Add this function:
@@ -581,6 +581,81 @@ class FirebaseBloodRepository @Inject constructor(
             )
 
             firestore.collection("institutions").document(uid).update(updates).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    override suspend fun createBloodRequest(
+        patientName: String,
+        bloodGroup: String,
+        hospitalName: String,
+        locationArea: String,
+        urgencyLevel: String,
+        unitsRequired: Int,
+        additionalNotes: String
+    ): Result<Unit> {
+        return try {
+            // 1. Generate a short, unique ID for the request
+            val requestId = java.util.UUID.randomUUID().toString().take(8).uppercase()
+
+            // 2. Safely get the user ID (so we know who created it for Phase 6)
+            val userId = auth.currentUser?.uid ?: "UNKNOWN"
+
+            // 3. Map the data for Firestore
+            val requestMap = hashMapOf(
+                "requestId" to requestId,
+                "patientName" to patientName,
+                "bloodGroup" to bloodGroup,
+                "hospitalName" to hospitalName,
+                "locationArea" to locationArea,
+                "urgencyLevel" to urgencyLevel,
+                "unitsRequired" to unitsRequired,
+                "additionalNotes" to additionalNotes,
+                "createdBy" to userId,
+                "status" to "ACTIVE", // Critical for filtering later!
+                "timestamp" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+            )
+
+            // 4. Push to the "blood_requests" collection
+            firestore.collection("blood_requests")
+                .document(requestId)
+                .set(requestMap)
+                .await() // Requires kotlinx.coroutines.tasks.await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    // 1. Fetch only requests created by the current user
+    override suspend fun getUserBloodRequests(): kotlinx.coroutines.flow.Flow<List<BloodRequest>> = callbackFlow {
+        val userId = auth.currentUser?.uid ?: return@callbackFlow
+
+        val listener = firestore.collection("blood_requests")
+            .whereEqualTo("createdBy", userId)
+            // Optional: Order by timestamp if you have an index set up
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    val requests = snapshot.documents.mapNotNull { it.toObject(BloodRequest::class.java)?.copy(requestId = it.id) }
+                    // Sort locally so newest are at the top
+                    trySend(requests).isSuccess
+                }
+            }
+        awaitClose { listener.remove() }
+    }
+
+    // 2. Change the status to Fulfilled so it drops off the public radar
+    override suspend fun markRequestFulfilled(requestId: String): Result<Unit> {
+        return try {
+            firestore.collection("blood_requests")
+                .document(requestId)
+                .update("status", "FULFILLED")
+                .await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

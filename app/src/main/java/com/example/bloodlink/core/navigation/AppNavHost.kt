@@ -36,7 +36,7 @@ import com.example.bloodlink.presentation.feature_profile.edit.EditProfileScreen
 import com.example.bloodlink.presentation.feature_profile.history.DonationHistoryScreen
 import com.example.bloodlink.presentation.feature_profile.main.ProfileScreen
 import com.example.bloodlink.presentation.feature_settings.SettingsScreen
-import com.example.bloodlink.presentation.feature_emergency.EmergencyPlaceholderScreen
+import com.example.bloodlink.presentation.feature_emergency.network_alerts.NetworkAlertsScreen
 
 @Composable
 fun AppNavHost(
@@ -96,8 +96,10 @@ fun AppNavHost(
 
 
         composable(Routes.EMERGENCY_ALERT) {
-            EmergencyPlaceholderScreen(
-                onNavigateBack = { navController.popBackStack() }
+            NetworkAlertsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                // Allow the hospital to click an alert to view patient details and fulfill it
+                onNavigateToRequestDetail = { requestId -> navController.navigate("request_detail/$requestId") }
             )
         }
 

@@ -7,10 +7,14 @@ import com.example.bloodlink.domain.model.RequestStatus
 import com.example.bloodlink.domain.repository.BloodRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+enum class RequestFilter { ALL, ACTIVE, COMPLETED }
 
 @HiltViewModel
 class MyRequestsViewModel @Inject constructor(
@@ -18,9 +22,19 @@ class MyRequestsViewModel @Inject constructor(
 ) : BaseViewModel() {
 
     private val _allRequests = MutableStateFlow<List<BloodRequest>>(emptyList())
+    private val _currentFilter = MutableStateFlow(RequestFilter.ALL)
 
-    private val _filteredRequests = MutableStateFlow<List<BloodRequest>>(emptyList())
-    val filteredRequests: StateFlow<List<BloodRequest>> = _filteredRequests.asStateFlow()
+    // THE UPGRADE: This automatically reacts to both Firebase updates AND Tab clicks perfectly!
+    val filteredRequests: StateFlow<List<BloodRequest>> = combine(
+        _allRequests,
+        _currentFilter
+    ) { requests, filter ->
+        when (filter) {
+            RequestFilter.ALL -> requests
+            RequestFilter.ACTIVE -> requests.filter { it.status == RequestStatus.ACTIVE }
+            RequestFilter.COMPLETED -> requests.filter { it.status == RequestStatus.COMPLETED }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         fetchMyRequests()
@@ -31,17 +45,24 @@ class MyRequestsViewModel @Inject constructor(
             _isLoading.value = true
             repository.getMyBloodRequests().collect { requests ->
                 _allRequests.value = requests
-                _filteredRequests.value = requests // Show 'All' by default
                 _isLoading.value = false
             }
         }
     }
 
-    fun showAll() {
-        _filteredRequests.value = _allRequests.value
+    fun setFilter(filter: RequestFilter) {
+        _currentFilter.value = filter
     }
 
-    fun filterByStatus(status: RequestStatus) {
-        _filteredRequests.value = _allRequests.value.filter { it.status == status }
+    // THE NEW ACTION: Closes the request in Firebase
+    fun markAsCompleted(requestId: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            // Ensure your BloodRepository has a function to update the status in Firestore!
+            repository.markRequestFulfilled(requestId).onFailure { error ->
+                _errorMessage.value = error.localizedMessage ?: "Failed to update status."
+            }
+            _isLoading.value = false
+        }
     }
 }
