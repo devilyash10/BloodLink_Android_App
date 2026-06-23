@@ -1,5 +1,7 @@
 package com.example.bloodlink.presentation.feature_requests.detail
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -7,16 +9,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bloodtype
-import androidx.compose.material.icons.filled.LocalHospital
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,14 +25,22 @@ import com.example.bloodlink.presentation.components.common.CustomTopAppBar
 
 @Composable
 fun RequestDetailScreen(
-    requestId: String, // We keep this parameter just in case, but the ViewModel does the heavy lifting now
+    requestId: String,
     onNavigateBack: () -> Unit,
     viewModel: RequestDetailViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
     val request by viewModel.requestDetail.collectAsState()
+    val isOwnRequest by viewModel.isOwnRequest.collectAsState()
+    val requesterProfile by viewModel.requesterProfile.collectAsState()
+    val respondingHeroes by viewModel.respondingHeroes.collectAsState()
+    val actionSuccess by viewModel.actionSuccess.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+
+    val showIncompatibleDialog by viewModel.showIncompatibleDialog.collectAsState()
+
+    val context = LocalContext.current
 
     Column(
         modifier = modifier
@@ -43,7 +50,7 @@ fun RequestDetailScreen(
     ) {
         CustomTopAppBar(title = "Request Details", onBackClick = onNavigateBack)
 
-        if (isLoading) {
+        if (isLoading && request == null) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Color(0xFFE62129))
             }
@@ -67,7 +74,6 @@ fun RequestDetailScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Your elegant circular badge
                         Box(
                             modifier = Modifier.size(72.dp).background(Color(0xFFFFEBEE), CircleShape),
                             contentAlignment = Alignment.Center
@@ -81,7 +87,6 @@ fun RequestDetailScreen(
                         }
                     }
 
-                    // Urgency Badge
                     val urgencyColor = when(req.urgencyLevel) {
                         UrgencyLevel.CRITICAL -> Color(0xFFD32F2F)
                         UrgencyLevel.HIGH -> Color(0xFFF57C00)
@@ -138,44 +143,158 @@ fun RequestDetailScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // --- Additional Notes (Only shows if there are notes) ---
-                if (req.additionalNotes.isNotBlank()) {
-                    Text(text = "Additional Notes", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                // --- LOGIC SPLIT: MY REQUEST vs SOMEONE ELSE'S REQUEST ---
+
+                if (isOwnRequest) {
+                    // ====== VIEWING MY OWN REQUEST ======
+                    Text(text = "Heroes Responding (${respondingHeroes.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8F8)),
-                        shape = RoundedCornerShape(12.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFEBEE))
-                    ) {
-                        Text(
-                            text = req.additionalNotes,
-                            modifier = Modifier.padding(16.dp),
-                            color = Color(0xFF5D4037),
-                            lineHeight = 22.sp,
-                            fontSize = 15.sp
-                        )
+
+                    if (respondingHeroes.isEmpty()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+                        ) {
+                            Text(
+                                "Waiting for donors to respond...",
+                                modifier = Modifier.padding(16.dp),
+                                color = Color.Gray
+                            )
+                        }
+                    } else {
+                        respondingHeroes.forEach { hero ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(text = hero.fullName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(text = "Blood: ${hero.bloodGroup}", color = Color.Gray, fontSize = 14.sp)
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            val intent = Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:${hero.phoneNumber}") }
+                                            context.startActivity(intent)
+                                        },
+                                        modifier = Modifier.background(Color(0xFFE8F5E9), CircleShape)
+                                    ) {
+                                        Icon(Icons.Default.Phone, contentDescription = "Call", tint = Color(0xFF388E3C))
+                                    }
+                                }
+                            }
+                        }
                     }
-                }
 
-                Spacer(modifier = Modifier.weight(1f))
-                Spacer(modifier = Modifier.height(40.dp))
+                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.height(40.dp))
 
-                // --- Huge Action Button ---
-                Button(
-                    onClick = { /* TODO: Trigger donor acceptance pipeline */ },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE62129)),
-                    shape = RoundedCornerShape(16.dp),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
-                ) {
-                    Icon(Icons.Default.Bloodtype, contentDescription = null, tint = Color.White)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("I Can Donate", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    // Mark as Completed Button
+                    Button(
+                        onClick = { viewModel.markAsCompleted() },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        enabled = !actionSuccess,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF388E3C), // Green
+                            disabledContainerColor = Color.Gray
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = if (actionSuccess) "Request Completed" else "Mark as Received", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                } else {
+                    // ====== VIEWING SOMEONE ELSE'S REQUEST ======
+                    requesterProfile?.let { profile ->
+                        Text(text = "Requested By", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(text = profile.fullName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(text = profile.phoneNumber, color = Color.Gray, fontSize = 14.sp)
+                                }
+                                IconButton(
+                                    onClick = {
+                                        val intent = Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:${profile.phoneNumber}") }
+                                        context.startActivity(intent)
+                                    },
+                                    modifier = Modifier.background(Color(0xFFE8F5E9), CircleShape)
+                                ) {
+                                    Icon(Icons.Default.Phone, contentDescription = "Call", tint = Color(0xFF388E3C))
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.height(40.dp))
+
+                    // I Can Donate Button
+                    Button(
+                        onClick = { viewModel.acceptRequest() },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        enabled = !actionSuccess,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (actionSuccess) Color(0xFF4CAF50) else Color(0xFFE62129),
+                            disabledContainerColor = Color(0xFF4CAF50)
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Default.Bloodtype, contentDescription = null, tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = if (actionSuccess) "Request Accepted!" else "I Can Donate", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+    }
+    // --- THE INCOMPATIBILITY WARNING DIALOG ---
+    if (showIncompatibleDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissDialog() },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Red)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Medical Incompatibility", fontWeight = FontWeight.Bold, color = Color.Red)
+                }
+            },
+            text = {
+                Text(
+                    text = "Your blood group is ${viewModel.currentUserProfile?.bloodGroup}. " +
+                            "Biologically, you cannot donate to a patient needing ${request?.bloodGroup}. \n\n" +
+                            "Please let a compatible donor answer this request.",
+                    fontSize = 15.sp,
+                    lineHeight = 22.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissDialog() }) {
+                    Text("Understood", color = Color.DarkGray, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 }

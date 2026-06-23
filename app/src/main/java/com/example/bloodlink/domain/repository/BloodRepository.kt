@@ -31,4 +31,12 @@ interface BloodRepository {
     fun getActiveBloodRequests(): Flow<List<BloodRequest>>
     // Fetch a single request by its ID
     suspend fun getBloodRequestById(requestId: String): Result<BloodRequest>
+    suspend fun getUserById(userId: String): Result<User>
+
+    suspend fun acceptBloodRequest(requestId: String): Result<Unit>
+
+    fun getMyBloodRequests(): Flow<List<BloodRequest>>
+
+    suspend fun getRespondingHeroes(requestId: String): Result<List<User>>
+    suspend fun markRequestCompleted(requestId: String): Result<Unit>
 }

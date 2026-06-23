@@ -2,6 +2,7 @@ package com.example.bloodlink.domain.model
 
 data class BloodRequest(
     val requestId: String,
+    val requesterId: String = "",
     val patientName: String,     // NEW
     val bloodGroup: String,
     val hospitalName: String,

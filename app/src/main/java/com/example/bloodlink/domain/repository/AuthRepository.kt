@@ -12,8 +12,15 @@ interface AuthRepository {
         fullName: String,
         bloodGroup: String,
         city: String,
-        phoneNumber: String
+        phoneNumber: String,
+        userType: String // <-- ADD THIS
     ): Result<Unit>
+
+//    suspend fun register(
+//        email: String, password: String, fullName: String,
+//        phoneNumber: String, bloodGroup: String, city: String,
+//        userType: String // <-- ADD THIS
+//    ): Result<Unit>
 
     suspend fun logout()
 }

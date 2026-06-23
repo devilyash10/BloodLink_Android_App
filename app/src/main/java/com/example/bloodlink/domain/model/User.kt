@@ -10,5 +10,6 @@ data class User(
     val isAvailableAsDonor: Boolean = true,
     val lastDonationDate: String? = null,
     val totalDonations: Int = 0,
-    val age: Int = 0
+    val age: Int = 0,
+    val userType: String = "INDIVIDUAL"
 )

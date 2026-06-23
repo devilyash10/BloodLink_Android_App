@@ -18,15 +18,22 @@ class SignUpViewModel @Inject constructor(
     private val _signUpSuccess = MutableStateFlow(false)
     val signUpSuccess: StateFlow<Boolean> = _signUpSuccess.asStateFlow()
 
-    fun signUp(email: String, password: String, name: String, bloodGroup: String, city: String, phone: String) {
-        if (email.isBlank() || password.isBlank() || name.isBlank() || bloodGroup.isBlank() || city.isBlank() || phone.isBlank()) {
+    fun signUp(
+        email: String,
+        password: String,
+        name: String,
+        bloodGroup: String,
+        city: String,
+        phone: String,
+        userType: String) {
+        if (email.isBlank() || password.isBlank() || name.isBlank() || bloodGroup.isBlank() || city.isBlank() || phone.isBlank() || userType.isBlank()) {
             _errorMessage.value = "Please fill in all configuration parameters."
             return
         }
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
-            authRepository.signUp(email.trim(), password.trim(), name.trim(), bloodGroup.trim(), city.trim(), phone.trim())
+            authRepository.signUp(email.trim(), password.trim(), name.trim(), bloodGroup.trim(), city.trim(), phone.trim(), userType.trim())
                 .onSuccess { _signUpSuccess.value = true }
                 .onFailure { _errorMessage.value = it.localizedMessage ?: "Registration failed." }
             _isLoading.value = false

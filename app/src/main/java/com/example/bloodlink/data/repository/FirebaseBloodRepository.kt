@@ -222,21 +222,30 @@ class FirebaseBloodRepository @Inject constructor(
 
     // Add this function:
     override fun getActiveBloodRequests(): Flow<List<BloodRequest>> = callbackFlow {
-        // We only want to see requests that are currently ACTIVE
+        // 1. Get the current user's ID
+        val currentUserId = auth.currentUser?.uid
+
         val subscription = firestore.collection("blood_requests")
             .whereEqualTo("status", "ACTIVE")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error) // If there's an issue, kill the stream safely
+                    close(error)
                     return@addSnapshotListener
                 }
 
                 if (snapshot != null) {
                     val requests = snapshot.documents.mapNotNull { doc ->
+                        val requesterId = doc.getString("requesterId") ?: ""
+
+                        // 2. THE FIX: If the request belongs to the logged-in user, ignore it!
+                        if (requesterId == currentUserId) {
+                            return@mapNotNull null
+                        }
+
                         try {
-                            // Safely map the Firestore document back into our Kotlin object
                             BloodRequest(
                                 requestId = doc.id,
+                                requesterId = requesterId,
                                 patientName = doc.getString("patientName") ?: "Unknown",
                                 bloodGroup = doc.getString("bloodGroupNeeded") ?: "--",
                                 hospitalName = doc.getString("hospitalName") ?: "Unknown Hospital",
@@ -248,20 +257,18 @@ class FirebaseBloodRepository @Inject constructor(
                                 },
                                 unitsRequired = doc.getLong("unitsRequired")?.toInt() ?: 1,
                                 additionalNotes = doc.getString("additionalNotes") ?: "",
-                                // Simple time mock for now (can upgrade to real timestamp formatting later)
                                 timeAgo = "Just now",
                                 responsesCount = doc.getLong("responsesCount")?.toInt() ?: 0,
                                 status = RequestStatus.ACTIVE
                             )
                         } catch (e: Exception) {
-                            null // Skip corrupt documents safely
+                            null
                         }
                     }
-                    trySend(requests) // Send the list of requests to the UI
+                    trySend(requests)
                 }
             }
 
-        // When the screen is destroyed, stop listening to save battery and money!
         awaitClose { subscription.remove() }
     }
     override suspend fun getBloodRequestById(requestId: String): Result<BloodRequest> {
@@ -271,6 +278,7 @@ class FirebaseBloodRepository @Inject constructor(
             if (doc.exists()) {
                 val request = BloodRequest(
                     requestId = doc.id,
+                    requesterId = doc.getString("requesterId") ?: "",
                     patientName = doc.getString("patientName") ?: "Unknown",
                     bloodGroup = doc.getString("bloodGroupNeeded") ?: "--",
                     hospitalName = doc.getString("hospitalName") ?: "Unknown Hospital",
@@ -290,6 +298,139 @@ class FirebaseBloodRepository @Inject constructor(
             } else {
                 Result.failure(Exception("Request not found."))
             }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    override suspend fun getUserById(userId: String): Result<User> {
+        return try {
+            val doc = firestore.collection("users").document(userId).get().await()
+            if (doc.exists()) {
+                val user = com.example.bloodlink.domain.model.User(
+                    id = doc.id,
+                    fullName = doc.getString("fullName") ?: "Unknown",
+                    //email = doc.getString("email") ?: "",
+                    phoneNumber = doc.getString("phoneNumber") ?: "No phone provided",
+                    bloodGroup = doc.getString("bloodGroup") ?: "",
+                    city = doc.getString("city") ?: "",
+                    isAvailableAsDonor = doc.getBoolean("isAvailableAsDonor") ?: true,
+                    totalDonations = doc.getLong("totalDonations")?.toInt() ?: 0
+                )
+                Result.success(user)
+            } else {
+                Result.failure(Exception("User not found"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun acceptBloodRequest(requestId: String): Result<Unit> {
+        return try {
+            val heroId = auth.currentUser?.uid ?: throw Exception("Not logged in")
+
+            // 1. Add the hero to the responses list
+            val responseData = hashMapOf(
+                "donorId" to heroId,
+                "respondedAt" to com.google.firebase.Timestamp.now(),
+                "status" to "ACCEPTED"
+            )
+
+            firestore.collection("blood_requests")
+                .document(requestId)
+                .collection("responses")
+                .document(heroId)
+                .set(responseData)
+                .await()
+
+            // 2. Increment the response count on the main request
+            firestore.collection("blood_requests").document(requestId)
+                .update("responsesCount", com.google.firebase.firestore.FieldValue.increment(1))
+                .await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    override fun getMyBloodRequests(): Flow<List<BloodRequest>> = callbackFlow {
+        val currentUserId = auth.currentUser?.uid
+        if (currentUserId == null) {
+            close(Exception("User not logged in"))
+            return@callbackFlow
+        }
+
+        val subscription = firestore.collection("blood_requests")
+            .whereEqualTo("requesterId", currentUserId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+                    val requests = snapshot.documents.mapNotNull { doc ->
+                        try {
+                            BloodRequest(
+                                requestId = doc.id,
+                                requesterId = doc.getString("requesterId") ?: "",
+                                patientName = doc.getString("patientName") ?: "Unknown",
+                                bloodGroup = doc.getString("bloodGroupNeeded") ?: "--",
+                                hospitalName = doc.getString("hospitalName") ?: "Unknown Hospital",
+                                locationArea = doc.getString("locationArea") ?: "",
+                                urgencyLevel = when (doc.getString("urgencyLevel")?.uppercase()) {
+                                    "CRITICAL" -> UrgencyLevel.CRITICAL
+                                    "HIGH" -> UrgencyLevel.HIGH
+                                    else -> UrgencyLevel.NORMAL
+                                },
+                                unitsRequired = doc.getLong("unitsRequired")?.toInt() ?: 1,
+                                additionalNotes = doc.getString("additionalNotes") ?: "",
+                                timeAgo = "Just now",
+                                responsesCount = doc.getLong("responsesCount")?.toInt() ?: 0,
+                                status = if (doc.getString("status") == "COMPLETED") RequestStatus.COMPLETED else RequestStatus.ACTIVE
+                            )
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    trySend(requests)
+                }
+            }
+
+        awaitClose { subscription.remove() }
+    }
+
+
+    override suspend fun getRespondingHeroes(requestId: String): Result<List<User>> {
+        return try {
+            // 1. Get the list of hero IDs from the responses sub-collection
+            val responsesSnapshot = firestore.collection("blood_requests")
+                .document(requestId)
+                .collection("responses")
+                .get()
+                .await()
+
+            val donorIds = responsesSnapshot.documents.map { it.id }
+
+            // 2. Fetch the actual User profiles for those IDs
+            val heroes = mutableListOf<User>()
+            for (id in donorIds) {
+                getUserById(id).onSuccess { user -> heroes.add(user) }
+            }
+
+            Result.success(heroes)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun markRequestCompleted(requestId: String): Result<Unit> {
+        return try {
+            firestore.collection("blood_requests")
+                .document(requestId)
+                .update("status", "COMPLETED")
+                .await()
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }

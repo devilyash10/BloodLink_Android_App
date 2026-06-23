@@ -33,7 +33,8 @@ class FirebaseAuthRepository @Inject constructor(
         fullName: String,
         bloodGroup: String,
         city: String,
-        phoneNumber: String
+        phoneNumber: String,
+        userType: String
     ): Result<Unit> {
         return try {
             val authResult = auth.createUserWithEmailAndPassword(email, password).await()
@@ -46,7 +47,8 @@ class FirebaseAuthRepository @Inject constructor(
                 "city" to city,
                 "phoneNumber" to phoneNumber,
                 "email" to email,
-                "isAvailableAsDonor" to false,
+                userType to userType,
+                "isAvailableAsDonor" to (userType == "INDIVIDUAL"),
                 "createdAt" to Timestamp.now()
             )
 

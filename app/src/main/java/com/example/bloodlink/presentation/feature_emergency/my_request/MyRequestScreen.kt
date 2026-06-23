@@ -1,30 +1,36 @@
 package com.example.bloodlink.presentation.feature_emergency.my_request
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.bloodlink.domain.model.BloodRequest
 import com.example.bloodlink.domain.model.RequestStatus
-import com.example.bloodlink.presentation.components.cards.RequestItemCard
 import com.example.bloodlink.presentation.components.common.CustomTopAppBar
 
 @Composable
 fun MyRequestScreen(
     onNavigateBack: () -> Unit,
-    onCreateNewRequest: () -> Unit, // ADDED BACK TO FIX NAVHOST ERROR
+    onCreateNewRequest: () -> Unit,
     viewModel: MyRequestsViewModel = hiltViewModel(),
     onNavigateToRequestDetail: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -35,11 +41,10 @@ fun MyRequestScreen(
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("All", "Active", "Completed")
 
-    // Using Scaffold to easily add a Floating Action Button
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onCreateNewRequest, // Connects to NavHost to open EmergencyRequestScreen
+                onClick = onCreateNewRequest,
                 containerColor = Color(0xFFE62129),
                 contentColor = Color.White
             ) {
@@ -50,7 +55,7 @@ fun MyRequestScreen(
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .padding(paddingValues) // Respect Scaffold padding
+                .padding(paddingValues)
                 .background(Color(0xFFFAFAFA))
         ) {
             CustomTopAppBar(
@@ -58,6 +63,7 @@ fun MyRequestScreen(
                 onBackClick = onNavigateBack
             )
 
+            // --- Premium Tab Row ---
             TabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = Color.White,
@@ -93,38 +99,115 @@ fun MyRequestScreen(
                 }
             }
 
-            if (isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+            // --- Content State Handling ---
+            if (isLoading && requests.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Color(0xFFE62129))
                 }
             } else if (requests.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "No requests found.", color = Color.Gray, fontSize = 16.sp)
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Favorite, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(64.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(text = "You haven't made any requests yet.", color = Color.Gray, fontSize = 16.sp)
+                    }
                 }
             } else {
+                // --- Request List ---
                 LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(requests) { request ->
-                        RequestItemCard(
-                            bloodGroup = request.bloodGroup,
-                            hospitalName = request.hospitalName,
-                            locationArea = request.locationArea,
-                            urgencyLevel = request.urgencyLevel.name,
-                            timeAgo = request.timeAgo,
-                            responsesCount = request.responsesCount,
-                            status = request.status.name,
-                            onClick = { onNavigateToRequestDetail(request.requestId) } // Pass the requestId to the callback}
+                        MyRequestPremiumCard(
+                            request = request,
+                            onClick = { onNavigateToRequestDetail(request.requestId) }
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+// --- Custom Premium Card for My Requests ---
+@Composable
+fun MyRequestPremiumCard(request: BloodRequest, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Blood Group Badge
+                Box(
+                    modifier = Modifier
+                        .background(Color(0xFFE62129), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(text = request.bloodGroup, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+
+                // Status Badge
+                if (request.status == RequestStatus.COMPLETED) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF388E3C), modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("COMPLETED", color = Color(0xFF388E3C), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                } else {
+                    Text("ACTIVE", color = Color(0xFF1976D2), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(text = request.patientName, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.LocalHospital, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(text = request.hospitalName, color = Color.Gray, fontSize = 14.sp)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = Color(0xFFF0F0F0))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Responses Highlight
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(text = "Responses Received", color = Color.DarkGray, fontSize = 14.sp)
+
+                // Highlight box changes color if heroes have responded!
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = if (request.responsesCount > 0) Color(0xFFE8F5E9) else Color(0xFFF5F5F5),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "${request.responsesCount} Heroes",
+                        color = if (request.responsesCount > 0) Color(0xFF388E3C) else Color.Gray,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
                 }
             }
         }

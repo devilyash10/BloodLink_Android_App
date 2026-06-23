@@ -23,40 +23,25 @@ class MyRequestsViewModel @Inject constructor(
     val filteredRequests: StateFlow<List<BloodRequest>> = _filteredRequests.asStateFlow()
 
     init {
-        loadRequests()
+        fetchMyRequests()
     }
 
-    private fun loadRequests() {
+    private fun fetchMyRequests() {
         viewModelScope.launch {
             _isLoading.value = true
-            try {
-                repository.getMyRequests().collect { requests ->
-                    _allRequests.value = requests
-                    _filteredRequests.value = requests // Default to showing all
-
-                    // 1. Turn off loading the exact moment we get our first response from Firebase
-                    _isLoading.value = false
-
-                    // 2. Handle the empty state right here
-                    if (requests.isEmpty()) {
-                        _errorMessage.value = "No requests found"
-                    } else {
-                        _errorMessage.value = null // Clear the message if they add a request later!
-                    }
-                }
-            } catch (e: Exception) {
-                _errorMessage.value = "Failed to load requests"
-                _isLoading.value = false // Keep this here in case Firebase crashes before connecting
+            repository.getMyBloodRequests().collect { requests ->
+                _allRequests.value = requests
+                _filteredRequests.value = requests // Show 'All' by default
+                _isLoading.value = false
             }
-            // Notice we completely removed the 'finally' block!
         }
-    }
-
-    fun filterByStatus(status: RequestStatus) {
-        _filteredRequests.value = _allRequests.value.filter { it.status == status }
     }
 
     fun showAll() {
         _filteredRequests.value = _allRequests.value
+    }
+
+    fun filterByStatus(status: RequestStatus) {
+        _filteredRequests.value = _allRequests.value.filter { it.status == status }
     }
 }
