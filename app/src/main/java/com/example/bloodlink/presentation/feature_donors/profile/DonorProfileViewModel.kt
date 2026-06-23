@@ -14,14 +14,20 @@ import javax.inject.Inject
 data class DetailedDonor(
     val id: String,
     val name: String,
+    val phoneNumber: String,
     val bloodGroup: String,
     val distance: String,
     val status: String,
     val lastDonated: String,
     val medication: String,
     val conditions: String,
-    val age: String
+    val age: String,
+    val gender: String,    // NEW
+    val city: String,      // NEW
+    val area: String,      // NEW
+    val totalDonations: Int // NEW
 )
+
 
 @HiltViewModel
 class DonorProfileViewModel @Inject constructor(
@@ -50,15 +56,21 @@ class DonorProfileViewModel @Inject constructor(
                     _donorData.value = DetailedDonor(
                         id = user.id,
                         name = user.fullName, // Now it will be Rahul or Neha!
+                        phoneNumber = user.phoneNumber,
                         bloodGroup = user.bloodGroup,
                         distance = "${user.distanceKm} km away",
                         status = if (user.isAvailableAsDonor) "Available to Donate" else "Currently Unavailable",
 
                         // We simulate these medical details since they aren't in the base User model yet
-                        lastDonated = "4 Months Ago",
+                        // Simulated data (Replace these with real database fields when you update the User model)
+                        lastDonated = "12 Oct 2025",
                         medication = "None",
                         conditions = "None",
-                        age = "28 Years"
+                        age = "26 Yrs",
+                        gender = "Male",
+                        city = user.city.ifBlank { "Bhopal" },
+                        area = "MP Nagar",
+                        totalDonations = 4
                     )
                 } else {
                     _errorMessage.value = "Donor not found."
