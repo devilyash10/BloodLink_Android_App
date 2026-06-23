@@ -334,13 +334,13 @@ fun RequestItemCard(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    val urgencyColor = when(request.urgencyLevel.name) {
+                    val urgencyColor = when(request.urgencyLevel) {
                         "CRITICAL" -> Color(0xFFD32F2F)
                         "HIGH" -> Color(0xFFF57C00)
                         else -> Color(0xFF388E3C)
                     }
                     Text(
-                        text = request.urgencyLevel.name,
+                        text = request.urgencyLevel,
                         color = urgencyColor,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp

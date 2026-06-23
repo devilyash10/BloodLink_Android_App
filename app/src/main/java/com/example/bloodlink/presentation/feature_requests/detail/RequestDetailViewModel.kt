@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.example.bloodlink.core.base.BaseViewModel
 import com.example.bloodlink.domain.model.BloodRequest
+import com.example.bloodlink.domain.model.RequestStatus
 import com.example.bloodlink.domain.model.User
 import com.example.bloodlink.domain.repository.BloodRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,26 +22,27 @@ class RequestDetailViewModel @Inject constructor(
 
     private val requestId: String = checkNotNull(savedStateHandle["requestId"])
 
-    private val _requestDetail = MutableStateFlow<BloodRequest?>(null)
-    val requestDetail: StateFlow<BloodRequest?> = _requestDetail.asStateFlow()
+    private val _request = MutableStateFlow<BloodRequest?>(null)
+    val request: StateFlow<BloodRequest?> = _request.asStateFlow()
 
-    private val _isOwnRequest = MutableStateFlow(false)
-    val isOwnRequest: StateFlow<Boolean> = _isOwnRequest.asStateFlow()
+    private val _currentUser = MutableStateFlow<User?>(null)
+    val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
-    private val _requesterProfile = MutableStateFlow<User?>(null)
-    val requesterProfile: StateFlow<User?> = _requesterProfile.asStateFlow()
+    private val _isHospital = MutableStateFlow(false)
+    val isHospital: StateFlow<Boolean> = _isHospital.asStateFlow()
+
+    private val _isOwner = MutableStateFlow(false)
+    val isOwner: StateFlow<Boolean> = _isOwner.asStateFlow()
+
+    private val _isCompleted = MutableStateFlow(false)
+    val isCompleted: StateFlow<Boolean> = _isCompleted.asStateFlow()
 
     private val _respondingHeroes = MutableStateFlow<List<User>>(emptyList())
     val respondingHeroes: StateFlow<List<User>> = _respondingHeroes.asStateFlow()
 
-    private val _actionSuccess = MutableStateFlow(false)
-    val actionSuccess: StateFlow<Boolean> = _actionSuccess.asStateFlow()
-
-    // --- NEW: Compatibility & Dialog States ---
-    var currentUserProfile: User? = null // Holds the hero's data
-
-    private val _showIncompatibleDialog = MutableStateFlow(false)
-    val showIncompatibleDialog: StateFlow<Boolean> = _showIncompatibleDialog.asStateFlow()
+    // NEW: Fetch the creator's phone number for the Call/Message buttons
+    private val _requesterPhone = MutableStateFlow("")
+    val requesterPhone: StateFlow<String> = _requesterPhone.asStateFlow()
 
     init {
         loadRequestDetails()
@@ -49,84 +51,56 @@ class RequestDetailViewModel @Inject constructor(
     private fun loadRequestDetails() {
         viewModelScope.launch {
             _isLoading.value = true
-            _errorMessage.value = null
 
-            repository.getBloodRequestById(requestId)
-                .onSuccess { request ->
-                    _requestDetail.value = request
+            val user = repository.getCurrentUser()
+            if (user != null) {
+                _currentUser.value = user
+            } else {
+                repository.getCurrentHospitalProfile().onSuccess { _isHospital.value = true }
+            }
 
-                    // Fetch and save the logged-in user!
-                    currentUserProfile = repository.getCurrentUser()
+            repository.getBloodRequestById(requestId).onSuccess { req ->
+                _request.value = req
+                _isCompleted.value = req.status == RequestStatus.COMPLETED
 
-                    if (request.requesterId == currentUserProfile?.id) {
-                        _isOwnRequest.value = true
-                        fetchRespondingHeroes()
-                    } else {
-                        _isOwnRequest.value = false
-                        fetchRequesterProfile(request.requesterId)
-                    }
+                val currentUserId = user?.id ?: ""
+                _isOwner.value = currentUserId == req.createdBy
+
+                // Fetch the creator's profile to get their phone number
+                repository.getUserById(req.createdBy).onSuccess { creator ->
+                    _requesterPhone.value = creator.phoneNumber
                 }
-                .onFailure { error ->
-                    _errorMessage.value = error.localizedMessage ?: "Failed to load request."
+
+                repository.getRespondingHeroes(req.requestId).onSuccess { heroes ->
+                    _respondingHeroes.value = heroes
                 }
+            }.onFailure {
+                _errorMessage.value = "Failed to load request details."
+            }
+
             _isLoading.value = false
         }
     }
 
-    private suspend fun fetchRequesterProfile(userId: String) {
-        repository.getUserById(userId).onSuccess { user -> _requesterProfile.value = user }
-    }
-
-    private suspend fun fetchRespondingHeroes() {
-        repository.getRespondingHeroes(requestId).onSuccess { heroes -> _respondingHeroes.value = heroes }
-    }
-
-    // --- NEW: Strict Medical Validation ---
-    fun acceptRequest() {
-        val donorBloodGroup = currentUserProfile?.bloodGroup ?: return
-        val patientBloodGroup = _requestDetail.value?.bloodGroup ?: return
-
-        // 1. Check biology first!
-        if (!isBloodCompatible(donor = donorBloodGroup, patient = patientBloodGroup)) {
-            _showIncompatibleDialog.value = true // Trigger the UI dialog
-            return // Stop the process completely
-        }
-
-        // 2. If compatible, proceed with Firebase upload
+    fun respondToRequest() {
         viewModelScope.launch {
             _isLoading.value = true
-            repository.acceptBloodRequest(requestId).onSuccess { _actionSuccess.value = true }
+            repository.acceptBloodRequest(requestId).onSuccess {
+                loadRequestDetails() // Refresh UI to update the "Already Responded" state!
+            }.onFailure { error ->
+                _errorMessage.value = error.localizedMessage ?: "Failed to respond."
+            }
             _isLoading.value = false
         }
     }
 
-    fun dismissDialog() {
-        _showIncompatibleDialog.value = false
-    }
-
-    fun markAsCompleted() {
+    fun acceptHeroAndComplete(heroId: String) {
         viewModelScope.launch {
             _isLoading.value = true
-            repository.markRequestCompleted(requestId).onSuccess { _actionSuccess.value = true }
+            repository.markRequestFulfilled(requestId).onSuccess {
+                _isCompleted.value = true
+            }
             _isLoading.value = false
-        }
-    }
-
-    // --- THE BIOLOGY MATRIX ---
-    private fun isBloodCompatible(donor: String, patient: String): Boolean {
-        val d = donor.trim().uppercase()
-        val p = patient.trim().uppercase()
-
-        return when (d) {
-            "O-" -> true // Universal Donor
-            "O+" -> p in listOf("O+", "A+", "B+", "AB+")
-            "A-" -> p in listOf("A-", "A+", "AB-", "AB+")
-            "A+" -> p in listOf("A+", "AB+")
-            "B-" -> p in listOf("B-", "B+", "AB-", "AB+")
-            "B+" -> p in listOf("B+", "AB+")
-            "AB-" -> p in listOf("AB-", "AB+")
-            "AB+" -> p == "AB+" // Can only donate to AB+
-            else -> false
         }
     }
 }

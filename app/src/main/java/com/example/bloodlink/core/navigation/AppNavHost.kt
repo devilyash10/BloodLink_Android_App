@@ -202,7 +202,6 @@ fun AppNavHost(
         composable("request_detail/{requestId}") { backStackEntry ->
             val id = backStackEntry.arguments?.getString("requestId") ?: ""
             com.example.bloodlink.presentation.feature_requests.detail.RequestDetailScreen(
-                requestId = id,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

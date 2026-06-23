@@ -2,14 +2,25 @@ package com.example.bloodlink.presentation.feature_requests.detail
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.LocalHospital
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Message
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,281 +31,335 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.bloodlink.domain.model.UrgencyLevel
+import com.example.bloodlink.domain.model.User
+import com.example.bloodlink.domain.util.BloodCompatibility
 import com.example.bloodlink.presentation.components.common.CustomTopAppBar
 
 @Composable
 fun RequestDetailScreen(
-    requestId: String,
     onNavigateBack: () -> Unit,
-    viewModel: RequestDetailViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier
+    viewModel: RequestDetailViewModel = hiltViewModel()
 ) {
-    val request by viewModel.requestDetail.collectAsState()
-    val isOwnRequest by viewModel.isOwnRequest.collectAsState()
-    val requesterProfile by viewModel.requesterProfile.collectAsState()
+    val request by viewModel.request.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
+    val isOwner by viewModel.isOwner.collectAsState()
+    val isHospital by viewModel.isHospital.collectAsState()
+    val isCompleted by viewModel.isCompleted.collectAsState()
     val respondingHeroes by viewModel.respondingHeroes.collectAsState()
-    val actionSuccess by viewModel.actionSuccess.collectAsState()
+    val requesterPhone by viewModel.requesterPhone.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val errorMessage by viewModel.errorMessage.collectAsState()
-
-    val showIncompatibleDialog by viewModel.showIncompatibleDialog.collectAsState()
 
     val context = LocalContext.current
+    var showConfirmDialog by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFFFAFAFA))
-            .systemBarsPadding()
-    ) {
-        CustomTopAppBar(title = "Request Details", onBackClick = onNavigateBack)
+    // Check if the current user is already in the list of heroes
+    val hasResponded = respondingHeroes.any { it.id == currentUser?.id }
 
-        if (isLoading && request == null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color(0xFFE62129))
-            }
-        } else if (errorMessage != null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = errorMessage!!, color = Color.Red, fontWeight = FontWeight.Medium)
-            }
-        } else if (request != null) {
-            val req = request!!
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(24.dp)
-            ) {
-                // --- Top Header: Blood Group & Urgency ---
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier.size(72.dp).background(Color(0xFFFFEBEE), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = req.bloodGroup, color = Color(0xFFE62129), fontWeight = FontWeight.Black, fontSize = 26.sp)
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column {
-                            Text(text = "Blood Required", color = Color.Gray, fontSize = 14.sp)
-                            Text(text = "${req.unitsRequired} Units", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                        }
-                    }
-
-                    val urgencyColor = when(req.urgencyLevel) {
-                        UrgencyLevel.CRITICAL -> Color(0xFFD32F2F)
-                        UrgencyLevel.HIGH -> Color(0xFFF57C00)
-                        else -> Color(0xFF388E3C)
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = urgencyColor, modifier = Modifier.size(24.dp))
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(text = req.urgencyLevel.name, color = urgencyColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // --- Patient & Location Details Card ---
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFFE62129), modifier = Modifier.size(24.dp))
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text("Patient Name", color = Color.Gray, fontSize = 13.sp)
-                                Text(req.patientName, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            }
-                        }
-
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = Color(0xFFF5F5F5))
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.LocalHospital, contentDescription = null, tint = Color(0xFFE62129), modifier = Modifier.size(24.dp))
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text("Hospital", color = Color.Gray, fontSize = 13.sp)
-                                Text(req.hospitalName, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            }
-                        }
-
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = Color(0xFFF5F5F5))
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(24.dp))
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text("Area", color = Color.Gray, fontSize = 13.sp)
-                                Text(req.locationArea.ifBlank { "Location not specified" }, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // --- LOGIC SPLIT: MY REQUEST vs SOMEONE ELSE'S REQUEST ---
-
-                if (isOwnRequest) {
-                    // ====== VIEWING MY OWN REQUEST ======
-                    Text(text = "Heroes Responding (${respondingHeroes.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    if (respondingHeroes.isEmpty()) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
-                        ) {
-                            Text(
-                                "Waiting for donors to respond...",
-                                modifier = Modifier.padding(16.dp),
-                                color = Color.Gray
-                            )
-                        }
-                    } else {
-                        respondingHeroes.forEach { hero ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+    Scaffold(
+        bottomBar = {
+            request?.let { req ->
+                if (!isCompleted && !isOwner) {
+                    Surface(
+                        color = Color.White,
+                        shadowElevation = 16.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(modifier = Modifier.padding(16.dp)) {
+                            if (isHospital) {
+                                Button(
+                                    onClick = { /* TODO: Fulfill from Vault */ },
+                                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
+                                    shape = RoundedCornerShape(16.dp)
                                 ) {
-                                    Column {
-                                        Text(text = hero.fullName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(text = "Blood: ${hero.bloodGroup}", color = Color.Gray, fontSize = 14.sp)
-                                    }
-                                    IconButton(
-                                        onClick = {
-                                            val intent = Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:${hero.phoneNumber}") }
-                                            context.startActivity(intent)
-                                        },
-                                        modifier = Modifier.background(Color(0xFFE8F5E9), CircleShape)
+                                    Icon(Icons.Default.LocalHospital, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text("Fulfill from Hospital Vault", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                }
+                            } else {
+                                val donorGroup = currentUser?.bloodGroup ?: ""
+                                val safeReqGroup = req.bloodGroup.ifBlank { "Unknown" }
+                                val isCompatible = donorGroup.isNotBlank() && BloodCompatibility.canDonate(donorGroup, safeReqGroup)
+
+                                // NEW LOGIC: Lock the button if they already responded!
+                                if (hasResponded) {
+                                    Button(
+                                        onClick = { },
+                                        enabled = false,
+                                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            disabledContainerColor = Color(0xFFE8F5E9),
+                                            disabledContentColor = Color(0xFF388E3C)
+                                        ),
+                                        shape = RoundedCornerShape(16.dp)
                                     ) {
-                                        Icon(Icons.Default.Phone, contentDescription = "Call", tint = Color(0xFF388E3C))
+                                        Icon(Icons.Default.CheckCircle, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text("You Have Responded", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                else if (isCompatible || safeReqGroup == "Unknown") {
+                                    Button(
+                                        onClick = { showConfirmDialog = true },
+                                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C)),
+                                        shape = RoundedCornerShape(16.dp)
+                                    ) {
+                                        Icon(Icons.Default.Favorite, contentDescription = null, tint = Color.White)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text("I Can Donate", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                } else {
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                                        border = BorderStroke(1.dp, Color(0xFFE62129).copy(alpha = 0.5f))
+                                    ) {
+                                        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = Color(0xFFD32F2F))
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column {
+                                                Text("Medical Mismatch", fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F))
+                                                Text("Your blood group ($donorGroup) cannot be donated to a patient requiring $safeReqGroup.", color = Color.DarkGray, fontSize = 13.sp)
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
+                }
+            }
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFFAFAFA))
+                .padding(paddingValues)
+        ) {
+            CustomTopAppBar(title = "Request Details", onBackClick = onNavigateBack)
 
-                    Spacer(modifier = Modifier.weight(1f))
-                    Spacer(modifier = Modifier.height(40.dp))
+            if (isLoading) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = Color(0xFFE62129))
+            }
 
-                    // Mark as Completed Button
-                    Button(
-                        onClick = { viewModel.markAsCompleted() },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        enabled = !actionSuccess,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF388E3C), // Green
-                            disabledContainerColor = Color.Gray
-                        ),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = if (actionSuccess) "Request Completed" else "Mark as Received", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                } else {
-                    // ====== VIEWING SOMEONE ELSE'S REQUEST ======
-                    requesterProfile?.let { profile ->
-                        Text(text = "Requested By", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+            request?.let { req ->
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    if (isCompleted) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
                             ) {
-                                Column {
-                                    Text(text = profile.fullName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(text = profile.phoneNumber, color = Color.Gray, fontSize = 14.sp)
-                                }
-                                IconButton(
-                                    onClick = {
-                                        val intent = Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:${profile.phoneNumber}") }
-                                        context.startActivity(intent)
-                                    },
-                                    modifier = Modifier.background(Color(0xFFE8F5E9), CircleShape)
-                                ) {
-                                    Icon(Icons.Default.Phone, contentDescription = "Call", tint = Color(0xFF388E3C))
+                                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF388E3C))
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text("This request has been successfully fulfilled.", color = Color(0xFF388E3C), fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.weight(1f))
-                    Spacer(modifier = Modifier.height(40.dp))
+                    item {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .background(if (isCompleted) Color.Gray else Color(0xFFE62129), RoundedCornerShape(16.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = req.bloodGroup.ifBlank { "O+" },
+                                    color = Color.White,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 28.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(text = req.patientName, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(modifier = Modifier.background(Color.Gray, RoundedCornerShape(4.dp)).padding(2.dp)) {
+                                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(10.dp))
+                                    }
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(text = req.hospitalName, color = Color.Gray, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(text = req.locationArea, color = Color.Gray, fontSize = 14.sp)
+                                }
+                            }
+                        }
+                    }
 
-                    // I Can Donate Button
-                    Button(
-                        onClick = { viewModel.acceptRequest() },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        enabled = !actionSuccess,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (actionSuccess) Color(0xFF4CAF50) else Color(0xFFE62129),
-                            disabledContainerColor = Color(0xFF4CAF50)
-                        ),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Icon(Icons.Default.Bloodtype, contentDescription = null, tint = Color.White)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = if (actionSuccess) "Request Accepted!" else "I Can Donate", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(12.dp)).border(1.dp, Color(0xFFEEEEEE), RoundedCornerShape(12.dp)).padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(text = "${req.unitsRequired}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE62129))
+                                Text(text = "Units", fontSize = 12.sp, color = Color.Gray)
+                            }
+                            Box(modifier = Modifier.width(1.dp).height(30.dp).background(Color(0xFFEEEEEE)))
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                val uColor = if (req.urgencyLevel == "CRITICAL") Color(0xFFD32F2F) else Color(0xFFF57C00)
+                                Text(text = req.urgencyLevel, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = uColor)
+                                Text(text = "Urgency", fontSize = 12.sp, color = Color.Gray)
+                            }
+                        }
+                    }
+
+                    // NEW: Functional Call and Message Intents
+                    if (!isOwner && !isCompleted) {
+                        item {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                OutlinedButton(
+                                    onClick = {
+                                        if (requesterPhone.isNotBlank()) {
+                                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$requesterPhone"))
+                                            context.startActivity(intent)
+                                        } else {
+                                            Toast.makeText(context, "Contact number unavailable", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f).height(48.dp),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Call", color = Color.DarkGray)
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        if (requesterPhone.isNotBlank()) {
+                                            val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$requesterPhone"))
+                                            context.startActivity(intent)
+                                        } else {
+                                            Toast.makeText(context, "Contact number unavailable", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f).height(48.dp),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.Message, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Message", color = Color.DarkGray)
+                                }
+                            }
+                        }
+                    }
+
+                    if (req.additionalNotes.isNotBlank()) {
+                        item {
+                            Text("Additional Notes", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(text = req.additionalNotes, color = Color.DarkGray, fontSize = 14.sp, lineHeight = 20.sp)
+                        }
+                    }
+
+                    item {
+                        HorizontalDivider(color = Color(0xFFEEEEEE))
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text("Responding Heroes", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        if (isOwner && !isCompleted) {
+                            Text("Select the hero who donated to mark this request as complete.", color = Color.Gray, fontSize = 14.sp)
+                        } else {
+                            Text("Heroes who have offered to help with this request.", color = Color.Gray, fontSize = 14.sp)
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (respondingHeroes.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxWidth().height(100.dp).background(Color.White, RoundedCornerShape(12.dp)).border(1.dp, Color(0xFFEEEEEE), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                                Text("Waiting for heroes to respond...", color = Color.Gray, fontWeight = FontWeight.Medium)
+                            }
+                        }
+                    }
+
+                    items(respondingHeroes) { hero ->
+                        HeroRespondentCard(
+                            hero = hero,
+                            isOwner = isOwner,
+                            isCompleted = isCompleted,
+                            onAccept = { viewModel.acceptHeroAndComplete(hero.id) }
+                        )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
-    // --- THE INCOMPATIBILITY WARNING DIALOG ---
-    if (showIncompatibleDialog) {
+
+    if (showConfirmDialog) {
         AlertDialog(
-            onDismissRequest = { viewModel.dismissDialog() },
+            onDismissRequest = { showConfirmDialog = false },
+            containerColor = Color.White,
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Red)
+                    Icon(Icons.Default.WaterDrop, contentDescription = null, tint = Color(0xFFE62129))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Medical Incompatibility", fontWeight = FontWeight.Bold, color = Color.Red)
+                    Text("Confirm Donation", fontWeight = FontWeight.Bold)
                 }
             },
             text = {
-                Text(
-                    text = "Your blood group is ${viewModel.currentUserProfile?.bloodGroup}. " +
-                            "Biologically, you cannot donate to a patient needing ${request?.bloodGroup}. \n\n" +
-                            "Please let a compatible donor answer this request.",
-                    fontSize = 15.sp,
-                    lineHeight = 22.sp
-                )
+                Text("Are you sure you want to commit to donating blood for ${request?.patientName}? The requester will be notified of your intent to help.", color = Color.DarkGray)
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.dismissDialog() }) {
-                    Text("Understood", color = Color.DarkGray, fontWeight = FontWeight.Bold)
+                Button(
+                    onClick = {
+                        viewModel.respondToRequest()
+                        showConfirmDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C))
+                ) {
+                    Text("Yes, I Will Donate")
                 }
             },
-            containerColor = Color.White,
-            shape = RoundedCornerShape(16.dp)
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) {
+                    Text("Cancel", color = Color.Gray)
+                }
+            }
         )
+    }
+}
+
+@Composable
+fun HeroRespondentCard(hero: User, isOwner: Boolean, isCompleted: Boolean, onAccept: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(44.dp).background(Color(0xFFE3F2FD), CircleShape), contentAlignment = Alignment.Center) {
+                    Text(hero.fullName.take(1), color = Color(0xFF1976D2), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(hero.fullName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(hero.city, color = Color.Gray, fontSize = 12.sp)
+                }
+            }
+
+            if (isOwner && !isCompleted) {
+                Button(
+                    onClick = onAccept,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8F5E9), contentColor = Color(0xFF388E3C))
+                ) {
+                    Text("Accept", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
     }
 }

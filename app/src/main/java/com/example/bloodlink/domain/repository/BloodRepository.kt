@@ -50,5 +50,5 @@ interface BloodRepository {
     // Add this to your BloodRepository interface
     suspend fun getUserBloodRequests(): kotlinx.coroutines.flow.Flow<List<BloodRequest>>
     suspend fun markRequestFulfilled(requestId: String): Result<Unit>
-
+    
 }

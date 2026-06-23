@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
-import kotlinx.coroutines.channels.awaitClose
 
 class FirebaseBloodRepository @Inject constructor(
     private val auth: FirebaseAuth,
@@ -21,10 +20,7 @@ class FirebaseBloodRepository @Inject constructor(
 ) : BloodRepository {
 
     override suspend fun getCurrentUser(): User? {
-        // Replace any hardcoded fallback strings with clean functional safe exits:
-        val uid = auth.currentUser?.uid ?: return null // for suspend operations returning optional types
-
-
+        val uid = auth.currentUser?.uid ?: return null
         return try {
             val doc = firestore.collection("users").document(uid).get().await()
             if (doc.exists()) {
@@ -54,7 +50,7 @@ class FirebaseBloodRepository @Inject constructor(
                     bloodGroup = doc.getString("bloodGroup") ?: "",
                     city = doc.getString("city") ?: "",
                     isAvailableAsDonor = doc.getBoolean("isAvailableAsDonor") ?: false,
-                    distanceKm = 2.5 // We will calculate real geospatial distance later
+                    distanceKm = 2.5
                 )
             } else null
         } catch (e: Exception) {
@@ -63,7 +59,6 @@ class FirebaseBloodRepository @Inject constructor(
     }
 
     override fun getNearbyDonors(bloodGroup: String, radiusKm: Float): Flow<List<User>> = callbackFlow {
-        // Real-time listener for available donors matching the blood group!
         val subscription = firestore.collection("users")
             .whereEqualTo("bloodGroup", bloodGroup)
             .whereEqualTo("isAvailableAsDonor", true)
@@ -81,18 +76,16 @@ class FirebaseBloodRepository @Inject constructor(
                         bloodGroup = doc.getString("bloodGroup") ?: bloodGroup,
                         city = doc.getString("city") ?: "",
                         isAvailableAsDonor = true,
-                        distanceKm = (1..10).random().toDouble() // Random dummy distance
+                        distanceKm = (1..10).random().toDouble()
                     )
                 } ?: emptyList()
 
                 trySend(donors)
             }
-
         awaitClose { subscription.remove() }
     }
 
     override fun getNearbyBloodBanks(): Flow<List<BloodBank>> = callbackFlow {
-        // Listening to the institutions collection in real-time
         val subscription = firestore.collection("institutions")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -101,35 +94,30 @@ class FirebaseBloodRepository @Inject constructor(
                 }
 
                 val banks = snapshot?.documents?.mapNotNull { doc ->
-                    // Safely extract the live inventory map
                     val inventoryMap = doc.get("liveInventory") as? Map<String, Number> ?: emptyMap()
-
-                    // Only show blood groups that have at least 1 unit in stock
                     val availableGroups = inventoryMap.filter { it.value.toLong() > 0 }.keys.toList()
 
                     BloodBank(
                         id = doc.id,
                         name = doc.getString("name") ?: "Unknown Blood Bank",
                         address = doc.getString("address") ?: "No address provided",
-                        distanceKm = (1..15).random().toDouble(), // Random distance until Maps API is added
+                        distanceKm = (1..15).random().toDouble(),
                         contactPhone = doc.getString("contactPhone") ?: "",
                         isOpen = doc.getBoolean("isOpen24x7") ?: true,
                         availableBloodGroups = availableGroups
                     )
                 } ?: emptyList()
-
                 trySend(banks)
             }
-
         awaitClose { subscription.remove() }
     }
 
-    // REMOVED 'suspend'
+    // LEGACY FUNCTION CLEANED
     override fun getMyRequests(): Flow<List<BloodRequest>> = callbackFlow {
         val uid = auth.currentUser?.uid ?: return@callbackFlow
 
         val subscription = firestore.collection("blood_requests")
-            .whereEqualTo("requesterId", uid)
+            .whereEqualTo("createdBy", uid)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(error)
@@ -139,90 +127,48 @@ class FirebaseBloodRepository @Inject constructor(
                 val requests = snapshot?.documents?.mapNotNull { doc ->
                     BloodRequest(
                         requestId = doc.id,
-                        patientName = doc.getString("patientName") ?: "Unknown", // Added
-                        bloodGroup = doc.getString("bloodGroupNeeded") ?: "",
+                        createdBy = doc.getString("createdBy") ?: uid,
+                        patientName = doc.getString("patientName") ?: "Unknown",
+                        bloodGroup = doc.getString("bloodGroup") ?: doc.getString("bloodGroupNeeded") ?: "",
                         hospitalName = doc.getString("hospitalName") ?: "",
-                        locationArea = doc.getString("hospitalName") ?: "",
-                        urgencyLevel = UrgencyLevel.valueOf(doc.getString("urgencyLevel") ?: "HIGH"),
-                        unitsRequired = doc.getLong("unitsRequired")?.toInt() ?: 1, // Added
-                        additionalNotes = doc.getString("additionalNotes") ?: "", // Added
-                        timeAgo = "Just now",
+                        locationArea = doc.getString("locationArea") ?: "",
+                        urgencyLevel = doc.getString("urgencyLevel") ?: "HIGH",
+                        unitsRequired = doc.getLong("unitsRequired")?.toInt() ?: 1,
+                        additionalNotes = doc.getString("additionalNotes") ?: "",
                         responsesCount = doc.getLong("responsesCount")?.toInt() ?: 0,
-                        status = RequestStatus.valueOf(doc.getString("status") ?: "ACTIVE")
+                        status = if (doc.getString("status") == "COMPLETED" || doc.getString("status") == "FULFILLED") RequestStatus.COMPLETED else RequestStatus.ACTIVE
                     )
                 } ?: emptyList()
-
                 trySend(requests)
             }
-
         awaitClose { subscription.remove() }
     }
+
+    // LEGACY FUNCTION CLEANED
     override suspend fun getRequestById(requestId: String): BloodRequest? {
         return try {
             val doc = firestore.collection("blood_requests").document(requestId).get().await()
             if (doc.exists()) {
                 BloodRequest(
                     requestId = doc.id,
+                    createdBy = doc.getString("createdBy") ?: doc.getString("requesterId") ?: "",
                     patientName = doc.getString("patientName") ?: "Unknown Patient",
-                    bloodGroup = doc.getString("bloodGroupNeeded") ?: "",
+                    bloodGroup = doc.getString("bloodGroup") ?: doc.getString("bloodGroupNeeded") ?: "",
                     hospitalName = doc.getString("hospitalName") ?: "",
-                    locationArea = doc.getString("hospitalName") ?: "",
-                    urgencyLevel = UrgencyLevel.valueOf(doc.getString("urgencyLevel") ?: "HIGH"),
+                    locationArea = doc.getString("locationArea") ?: "",
+                    urgencyLevel = doc.getString("urgencyLevel") ?: "HIGH",
                     unitsRequired = doc.getLong("unitsRequired")?.toInt() ?: 1,
                     additionalNotes = doc.getString("additionalNotes") ?: "No additional notes provided.",
-                    timeAgo = "Recently",
                     responsesCount = doc.getLong("responsesCount")?.toInt() ?: 0,
-                    status = RequestStatus.valueOf(doc.getString("status") ?: "ACTIVE")
+                    status = if (doc.getString("status") == "COMPLETED" || doc.getString("status") == "FULFILLED") RequestStatus.COMPLETED else RequestStatus.ACTIVE
                 )
             } else null
         } catch (e: Exception) {
             null
         }
     }
-//    override suspend fun createBloodRequest(
-//        patientName: String,
-//        bloodGroup: String,
-//        hospitalName: String,
-//        locationArea: String,
-//        urgencyLevel: String,
-//        unitsRequired: Int,
-//        additionalNotes: String
-//    ): Result<Unit> {
-//        return try {
-//            // 1. Ensure the user is logged in
-//            val uid = auth.currentUser?.uid ?: throw Exception("User not authenticated.")
-//
-//            // 2. Ask Firestore to generate a fresh, unique Document ID
-//            val newRequestRef = firestore.collection("blood_requests").document()
-//
-//            // 3. Map the data exactly to your Firestore schema
-//            val requestData = hashMapOf(
-//                "patientName" to patientName,
-//                "bloodGroupNeeded" to bloodGroup,
-//                "hospitalName" to hospitalName,
-//                "hospitalId" to "pending_hospital_id", // Placeholder until you add real hospital picking
-//                "locationArea" to locationArea,
-//                "requesterId" to uid,
-//                "urgencyLevel" to urgencyLevel,
-//                "unitsRequired" to unitsRequired,
-//                "additionalNotes" to additionalNotes,
-//                "status" to "ACTIVE",
-//                "responsesCount" to 0,
-//                "createdAt" to com.google.firebase.Timestamp.now()
-//            )
-//
-//            // 4. Save to database
-//            newRequestRef.set(requestData).await()
-//            Result.success(Unit)
-//        } catch (e: Exception) {
-//            Result.failure(e)
-//        }
-//    }
 
-
-    // Add this function:
     override fun getActiveBloodRequests(): Flow<List<BloodRequest>> = callbackFlow {
-        // 1. Get the current user's ID
         val currentUserId = auth.currentUser?.uid
 
         val subscription = firestore.collection("blood_requests")
@@ -235,29 +181,23 @@ class FirebaseBloodRepository @Inject constructor(
 
                 if (snapshot != null) {
                     val requests = snapshot.documents.mapNotNull { doc ->
-                        val requesterId = doc.getString("requesterId") ?: ""
+                        val createdBy = doc.getString("createdBy") ?: doc.getString("requesterId") ?: ""
 
-                        // 2. THE FIX: If the request belongs to the logged-in user, ignore it!
-                        if (requesterId == currentUserId) {
+                        if (createdBy == currentUserId) {
                             return@mapNotNull null
                         }
 
                         try {
                             BloodRequest(
                                 requestId = doc.id,
-                                requesterId = requesterId,
+                                createdBy = createdBy,
                                 patientName = doc.getString("patientName") ?: "Unknown",
-                                bloodGroup = doc.getString("bloodGroupNeeded") ?: "--",
+                                bloodGroup = doc.getString("bloodGroup") ?: doc.getString("bloodGroupNeeded") ?: "--",
                                 hospitalName = doc.getString("hospitalName") ?: "Unknown Hospital",
                                 locationArea = doc.getString("locationArea") ?: "",
-                                urgencyLevel = when (doc.getString("urgencyLevel")?.uppercase()) {
-                                    "CRITICAL" -> UrgencyLevel.CRITICAL
-                                    "HIGH" -> UrgencyLevel.HIGH
-                                    else -> UrgencyLevel.NORMAL
-                                },
+                                urgencyLevel = doc.getString("urgencyLevel") ?: "HIGH",
                                 unitsRequired = doc.getLong("unitsRequired")?.toInt() ?: 1,
                                 additionalNotes = doc.getString("additionalNotes") ?: "",
-                                timeAgo = "Just now",
                                 responsesCount = doc.getLong("responsesCount")?.toInt() ?: 0,
                                 status = RequestStatus.ACTIVE
                             )
@@ -268,40 +208,23 @@ class FirebaseBloodRepository @Inject constructor(
                     trySend(requests)
                 }
             }
-
         awaitClose { subscription.remove() }
     }
+
     override suspend fun getBloodRequestById(requestId: String): Result<BloodRequest> {
         return try {
-            val doc = firestore.collection("blood_requests").document(requestId).get().await()
-
-            if (doc.exists()) {
-                val request = BloodRequest(
-                    requestId = doc.id,
-                    requesterId = doc.getString("requesterId") ?: "",
-                    patientName = doc.getString("patientName") ?: "Unknown",
-                    bloodGroup = doc.getString("bloodGroupNeeded") ?: "--",
-                    hospitalName = doc.getString("hospitalName") ?: "Unknown Hospital",
-                    locationArea = doc.getString("locationArea") ?: "",
-                    urgencyLevel = when (doc.getString("urgencyLevel")?.uppercase()) {
-                        "CRITICAL" -> UrgencyLevel.CRITICAL
-                        "HIGH" -> UrgencyLevel.HIGH
-                        else -> UrgencyLevel.NORMAL
-                    },
-                    unitsRequired = doc.getLong("unitsRequired")?.toInt() ?: 1,
-                    additionalNotes = doc.getString("additionalNotes") ?: "",
-                    timeAgo = "Just now", // Placeholder
-                    responsesCount = doc.getLong("responsesCount")?.toInt() ?: 0,
-                    status = RequestStatus.ACTIVE
-                )
-                Result.success(request)
+            val document = firestore.collection("blood_requests").document(requestId).get().await()
+            val request = document.toObject(BloodRequest::class.java)
+            if (request != null) {
+                Result.success(request.copy(requestId = document.id))
             } else {
-                Result.failure(Exception("Request not found."))
+                Result.failure(Exception("Request not found"))
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
+
     override suspend fun getUserById(userId: String): Result<User> {
         return try {
             val doc = firestore.collection("users").document(userId).get().await()
@@ -309,7 +232,6 @@ class FirebaseBloodRepository @Inject constructor(
                 val user = com.example.bloodlink.domain.model.User(
                     id = doc.id,
                     fullName = doc.getString("fullName") ?: "Unknown",
-                    //email = doc.getString("email") ?: "",
                     phoneNumber = doc.getString("phoneNumber") ?: "No phone provided",
                     bloodGroup = doc.getString("bloodGroup") ?: "",
                     city = doc.getString("city") ?: "",
@@ -329,7 +251,6 @@ class FirebaseBloodRepository @Inject constructor(
         return try {
             val heroId = auth.currentUser?.uid ?: throw Exception("Not logged in")
 
-            // 1. Add the hero to the responses list
             val responseData = hashMapOf(
                 "donorId" to heroId,
                 "respondedAt" to com.google.firebase.Timestamp.now(),
@@ -343,7 +264,6 @@ class FirebaseBloodRepository @Inject constructor(
                 .set(responseData)
                 .await()
 
-            // 2. Increment the response count on the main request
             firestore.collection("blood_requests").document(requestId)
                 .update("responsesCount", com.google.firebase.firestore.FieldValue.increment(1))
                 .await()
@@ -353,6 +273,7 @@ class FirebaseBloodRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
     override fun getMyBloodRequests(): Flow<List<BloodRequest>> = callbackFlow {
         val currentUserId = auth.currentUser?.uid
         if (currentUserId == null) {
@@ -361,7 +282,7 @@ class FirebaseBloodRepository @Inject constructor(
         }
 
         val subscription = firestore.collection("blood_requests")
-            .whereEqualTo("requesterId", currentUserId)
+            .whereEqualTo("createdBy", currentUserId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(error)
@@ -373,21 +294,19 @@ class FirebaseBloodRepository @Inject constructor(
                         try {
                             BloodRequest(
                                 requestId = doc.id,
-                                requesterId = doc.getString("requesterId") ?: "",
+                                createdBy = doc.getString("createdBy") ?: "",
                                 patientName = doc.getString("patientName") ?: "Unknown",
-                                bloodGroup = doc.getString("bloodGroupNeeded") ?: "--",
+                                bloodGroup = doc.getString("bloodGroup") ?: "--",
                                 hospitalName = doc.getString("hospitalName") ?: "Unknown Hospital",
                                 locationArea = doc.getString("locationArea") ?: "",
-                                urgencyLevel = when (doc.getString("urgencyLevel")?.uppercase()) {
-                                    "CRITICAL" -> UrgencyLevel.CRITICAL
-                                    "HIGH" -> UrgencyLevel.HIGH
-                                    else -> UrgencyLevel.NORMAL
-                                },
+                                urgencyLevel = doc.getString("urgencyLevel") ?: "HIGH",
                                 unitsRequired = doc.getLong("unitsRequired")?.toInt() ?: 1,
                                 additionalNotes = doc.getString("additionalNotes") ?: "",
-                                timeAgo = "Just now",
                                 responsesCount = doc.getLong("responsesCount")?.toInt() ?: 0,
-                                status = if (doc.getString("status") == "COMPLETED") RequestStatus.COMPLETED else RequestStatus.ACTIVE
+                                status = if (doc.getString("status") == "COMPLETED" || doc.getString("status") == "FULFILLED")
+                                    RequestStatus.COMPLETED
+                                else
+                                    RequestStatus.ACTIVE
                             )
                         } catch (e: Exception) {
                             null
@@ -396,14 +315,11 @@ class FirebaseBloodRepository @Inject constructor(
                     trySend(requests)
                 }
             }
-
         awaitClose { subscription.remove() }
     }
 
-
     override suspend fun getRespondingHeroes(requestId: String): Result<List<User>> {
         return try {
-            // 1. Get the list of hero IDs from the responses sub-collection
             val responsesSnapshot = firestore.collection("blood_requests")
                 .document(requestId)
                 .collection("responses")
@@ -412,7 +328,6 @@ class FirebaseBloodRepository @Inject constructor(
 
             val donorIds = responsesSnapshot.documents.map { it.id }
 
-            // 2. Fetch the actual User profiles for those IDs
             val heroes = mutableListOf<User>()
             for (id in donorIds) {
                 getUserById(id).onSuccess { user -> heroes.add(user) }
@@ -435,40 +350,35 @@ class FirebaseBloodRepository @Inject constructor(
             Result.failure(e)
         }
     }
-    //this feature turn on off the donor availability feature
+
     override suspend fun updateDonorAvailability(isAvailable: Boolean): Result<Unit> {
         return try {
             val uid = auth.currentUser?.uid ?: throw Exception("User not logged in")
-
             firestore.collection("users")
                 .document(uid)
                 .update("isAvailableAsDonor", isAvailable)
                 .await()
-
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
+
     override suspend fun searchDonors(bloodGroup: String, city: String): Result<List<User>> {
         return try {
-            // 1. Fetch ALL users to completely bypass Firebase schema mismatches
             val snapshot = firestore.collection("users").get().await()
-
             val currentUserId = auth.currentUser?.uid
 
             val allDonors = snapshot.documents.mapNotNull { doc ->
                 try {
-                    com.example.bloodlink.domain.model.User(
+                    User(
                         id = doc.id,
                         fullName = doc.getString("fullName") ?: "Unknown",
                         phoneNumber = doc.getString("phoneNumber") ?: "",
                         bloodGroup = doc.getString("bloodGroup") ?: "",
                         city = doc.getString("city") ?: "",
-                        // Default older test accounts to true so they show up!
                         isAvailableAsDonor = doc.getBoolean("isAvailableAsDonor") ?: true,
                         totalDonations = doc.getLong("totalDonations")?.toInt() ?: 0,
-                        // Default older test accounts to INDIVIDUAL
                         userType = doc.getString("userType") ?: "INDIVIDUAL"
                     )
                 } catch (e: Exception) {
@@ -476,22 +386,13 @@ class FirebaseBloodRepository @Inject constructor(
                 }
             }
 
-            // 2. Filter everything securely in Kotlin
             val filtered = allDonors.filter { donor ->
-                // Must be available and an individual
                 val isAvailable = donor.isAvailableAsDonor
                 val isIndividual = donor.userType == "INDIVIDUAL"
-
-                // Must NOT be the person who is currently logged in!
                 val isNotMe = donor.id != currentUserId
-
-                // Match Blood Group
                 val matchBlood = if (bloodGroup == "All" || bloodGroup.isBlank()) true else donor.bloodGroup.trim() == bloodGroup.trim()
-
-                // Match City (Case-insensitive)
                 val matchCity = if (city.isBlank()) true else donor.city.contains(city.trim(), ignoreCase = true)
 
-                // If all these are true, keep the donor in the list!
                 isAvailable && isIndividual && isNotMe && matchBlood && matchCity
             }
 
@@ -500,17 +401,13 @@ class FirebaseBloodRepository @Inject constructor(
             Result.failure(e)
         }
     }
-    // Make sure your interface in BloodRepository.kt is also set to return Result<List<BloodBank>>
+
     override suspend fun getBloodBanks(): Result<List<BloodBank>> {
         return try {
             val snapshot = firestore.collection("institutions").get().await()
-
-            // 1. Get the ID of the hospital currently using the app
             val currentUserId = auth.currentUser?.uid
 
             val banks = snapshot.documents.mapNotNull { doc ->
-
-                // 2. THE FIX: If this document is MY hospital, skip it!
                 if (doc.id == currentUserId) return@mapNotNull null
 
                 try {
@@ -530,8 +427,6 @@ class FirebaseBloodRepository @Inject constructor(
                     null
                 }
             }
-
-            android.util.Log.d("BANK_DEBUG", "Successfully pulled ${banks.size} banks from the institutions collection!")
             Result.success(banks)
         } catch (e: Exception) {
             Result.failure(e)
@@ -545,13 +440,8 @@ class FirebaseBloodRepository @Inject constructor(
 
             if (!doc.exists()) throw Exception("Institution profile not found")
 
-            // 1. Safely extract the raw map from Firestore
             val liveInventoryRaw = doc.get("liveInventory") as? Map<String, Any> ?: emptyMap()
-
-            // 2. Convert it safely into Kotlin Integers
             val liveInventoryInt = liveInventoryRaw.mapValues { (it.value as? Number)?.toInt() ?: 0 }
-
-            // 3. Figure out which ones are greater than 0 for the UI chips
             val inStockGroups = liveInventoryInt.filter { it.value > 0 }.keys.toList()
 
             val hospital = BloodBank(
@@ -562,7 +452,7 @@ class FirebaseBloodRepository @Inject constructor(
                 isOpen = doc.getBoolean("isOpen24x7") ?: true,
                 distanceKm = 0.0,
                 availableBloodGroups = inStockGroups,
-                liveInventory = liveInventoryInt // Pass the mapped numbers to our model!
+                liveInventory = liveInventoryInt
             )
             Result.success(hospital)
         } catch (e: Exception) {
@@ -573,8 +463,6 @@ class FirebaseBloodRepository @Inject constructor(
     override suspend fun updateHospitalInventory(newInventory: Map<String, Int>): Result<Unit> {
         return try {
             val uid = auth.currentUser?.uid ?: throw Exception("Hospital not logged in")
-
-            // Batch update: Saves the inventory AND stamps the exact server time
             val updates = mapOf(
                 "liveInventory" to newInventory,
                 "lastInventoryUpdate" to com.google.firebase.firestore.FieldValue.serverTimestamp()
@@ -586,6 +474,7 @@ class FirebaseBloodRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
     override suspend fun createBloodRequest(
         patientName: String,
         bloodGroup: String,
@@ -596,13 +485,9 @@ class FirebaseBloodRepository @Inject constructor(
         additionalNotes: String
     ): Result<Unit> {
         return try {
-            // 1. Generate a short, unique ID for the request
             val requestId = java.util.UUID.randomUUID().toString().take(8).uppercase()
-
-            // 2. Safely get the user ID (so we know who created it for Phase 6)
             val userId = auth.currentUser?.uid ?: "UNKNOWN"
 
-            // 3. Map the data for Firestore
             val requestMap = hashMapOf(
                 "requestId" to requestId,
                 "patientName" to patientName,
@@ -613,28 +498,26 @@ class FirebaseBloodRepository @Inject constructor(
                 "unitsRequired" to unitsRequired,
                 "additionalNotes" to additionalNotes,
                 "createdBy" to userId,
-                "status" to "ACTIVE", // Critical for filtering later!
+                "status" to "ACTIVE",
                 "timestamp" to com.google.firebase.firestore.FieldValue.serverTimestamp()
             )
 
-            // 4. Push to the "blood_requests" collection
             firestore.collection("blood_requests")
                 .document(requestId)
                 .set(requestMap)
-                .await() // Requires kotlinx.coroutines.tasks.await()
+                .await()
 
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
-    // 1. Fetch only requests created by the current user
-    override suspend fun getUserBloodRequests(): kotlinx.coroutines.flow.Flow<List<BloodRequest>> = callbackFlow {
+
+    override suspend fun getUserBloodRequests(): Flow<List<BloodRequest>> = callbackFlow {
         val userId = auth.currentUser?.uid ?: return@callbackFlow
 
         val listener = firestore.collection("blood_requests")
             .whereEqualTo("createdBy", userId)
-            // Optional: Order by timestamp if you have an index set up
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(error)
@@ -642,19 +525,17 @@ class FirebaseBloodRepository @Inject constructor(
                 }
                 if (snapshot != null) {
                     val requests = snapshot.documents.mapNotNull { it.toObject(BloodRequest::class.java)?.copy(requestId = it.id) }
-                    // Sort locally so newest are at the top
                     trySend(requests).isSuccess
                 }
             }
         awaitClose { listener.remove() }
     }
 
-    // 2. Change the status to Fulfilled so it drops off the public radar
     override suspend fun markRequestFulfilled(requestId: String): Result<Unit> {
         return try {
             firestore.collection("blood_requests")
                 .document(requestId)
-                .update("status", "FULFILLED")
+                .update("status", "COMPLETED") // Aligning to COMPLETED to match your Domain Model
                 .await()
             Result.success(Unit)
         } catch (e: Exception) {

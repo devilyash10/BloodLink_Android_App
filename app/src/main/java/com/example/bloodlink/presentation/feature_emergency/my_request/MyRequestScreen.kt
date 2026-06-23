@@ -1,5 +1,6 @@
 package com.example.bloodlink.presentation.feature_emergency.my_request
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
@@ -39,6 +41,7 @@ fun MyRequestScreen(
     val isLoading by viewModel.isLoading.collectAsState()
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
+    var showResolutionDialog by remember { mutableStateOf<BloodRequest?>(null) }
     val tabs = listOf("All", "Active", "Completed")
 
     Scaffold(
@@ -125,12 +128,84 @@ fun MyRequestScreen(
                         MyRequestPremiumCard(
                             request = request,
                             onClick = { onNavigateToRequestDetail(request.requestId) },
-                            onMarkCompleted = { viewModel.markAsCompleted(request.requestId) }
+                            onMarkCompleted = { showResolutionDialog = request }
                         )
                     }
                 }
             }
         }
+    }
+    // --- THE RESOLUTION DIALOG ---
+    // --- THE SMART RESOLUTION DIALOG ---
+    showResolutionDialog?.let { request ->
+        AlertDialog(
+            onDismissRequest = { showResolutionDialog = null },
+            containerColor = Color.White,
+            title = { Text("Complete Request", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("How was this blood requirement fulfilled?", color = Color.Gray, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Option 1: Arranged from Outside (Always Available)
+                    Card(
+                        onClick = {
+                            viewModel.markAsCompleted(request.requestId)
+                            showResolutionDialog = null
+                        },
+                        modifier = Modifier.fillMaxWidth().height(60.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.LocalHospital, contentDescription = null, tint = Color.Gray)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("Arranged from other sources", fontWeight = FontWeight.Medium, color = Color.DarkGray)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Option 2: A BloodLink Hero (ONLY IF RESPONSES > 0)
+                    if (request.responsesCount > 0) {
+                        Card(
+                            onClick = {
+                                showResolutionDialog = null
+                                onNavigateToRequestDetail(request.requestId)
+                            },
+                            modifier = Modifier.fillMaxWidth().height(60.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFF388E3C).copy(alpha = 0.3f))
+                        ) {
+                            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Favorite, contentDescription = null, tint = Color(0xFF388E3C))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text("A BloodLink Hero Donated", fontWeight = FontWeight.Bold, color = Color(0xFF388E3C))
+                            }
+                        }
+                    } else {
+                        // Disabled State
+                        Card(
+                            modifier = Modifier.fillMaxWidth().height(60.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFAFAFA)),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFFEEEEEE))
+                        ) {
+                            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = Color.LightGray)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text("No heroes responded yet", fontWeight = FontWeight.Medium, color = Color.LightGray)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showResolutionDialog = null }) { Text("Cancel", color = Color.Gray) }
+            }
+        )
     }
 }
 

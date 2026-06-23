@@ -33,7 +33,7 @@ class NetworkAlertsViewModel @Inject constructor(
                     // Sort so CRITICAL emergencies are always at the top!
                     // Strict priority: CRITICAL (3) -> HIGH (2) -> NORMAL (1)
                     val sortedAlerts = activeRequests.sortedByDescending { alert ->
-                        when (alert.urgencyLevel.name.uppercase()) {
+                        when (alert.urgencyLevel.uppercase()) {
                             "CRITICAL" -> 4
                             "HIGH" -> 3
                             "MEDIUM" -> 2
