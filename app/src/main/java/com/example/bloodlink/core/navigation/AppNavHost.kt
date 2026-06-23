@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.bloodlink.presentation.feature_auth.login.LoginScreen
 import com.example.bloodlink.presentation.feature_auth.onboarding.OnboardingScreen
@@ -35,6 +36,7 @@ import com.example.bloodlink.presentation.feature_profile.edit.EditProfileScreen
 import com.example.bloodlink.presentation.feature_profile.history.DonationHistoryScreen
 import com.example.bloodlink.presentation.feature_profile.main.ProfileScreen
 import com.example.bloodlink.presentation.feature_settings.SettingsScreen
+import com.example.bloodlink.presentation.feature_emergency.EmergencyPlaceholderScreen
 
 @Composable
 fun AppNavHost(
@@ -79,10 +81,23 @@ fun AppNavHost(
         composable("home") {
             HomeScreen(
                 onNavigateToSearch = { navController.navigate("search_donors") },
-                onNavigateToEmergency = { navController.navigate("emergency_request") },
+                onNavigateToDonateHub = { navController.navigate("donate_hub") },
+
+                // Ensure this matches your EXACT emergency route name!
+                // (e.g., if you named it "emergency_screen", change it here)
+                onNavigateToCreateRequest = { navController.navigate("emergency_request") },
+                onNavigateToNetworkAlerts = { navController.navigate(Routes.EMERGENCY_ALERT) },
                 onNavigateToBloodBanks = { navController.navigate("blood_banks") },
                 onNavigateToMyRequests = { navController.navigate("my_requests") },
-                onNavigateToRequestDetail = { requestId -> navController.navigate("request_detail/$requestId") }
+                onNavigateToRequestDetail = { requestId -> navController.navigate("request_detail/$requestId") },
+                onNavigateToInventory = { navController.navigate("inventory_dashboard") }
+            )
+        }
+
+
+        composable(Routes.EMERGENCY_ALERT) {
+            EmergencyPlaceholderScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -119,19 +134,29 @@ fun AppNavHost(
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToAboutUs = { navController.navigate("about_us") },
                 onLogOut = {
-                    navController.navigate("login") { popUpTo(0) { inclusive = true } }
+                    // Explicitly target "splash_screen" to clear the stack safely
+                    navController.navigate("onboarding") {
+                        popUpTo("splash_screen") { inclusive = true }
+                        launchSingleTop = true
+                    }
                 }
             )
         }
         // 3. The New Hospital Profile
         composable("hospital_profile") {
-            // Grab the ViewModel we just created
             val viewModel: com.example.bloodlink.presentation.feature_profile.hospital.HospitalProfileViewModel = hiltViewModel()
             val hospital by viewModel.hospitalData.collectAsState()
             val logoutEvent by viewModel.logoutEvent.collectAsState()
 
             LaunchedEffect(logoutEvent) {
-                if (logoutEvent) navController.navigate("login") { popUpTo(0) }
+                if (logoutEvent) {
+                    // THE FIX: Use the graph ID to safely clear the stack,
+                    // and ensure "login" is your EXACT authentication route name!
+                    navController.navigate("onboarding") {
+                        popUpTo("splash_screen") { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
             }
 
             if (hospital != null) {
@@ -194,7 +219,13 @@ fun AppNavHost(
                 onNavigateToList = { navController.popBackStack() }
             )
         }
-
+        //This is ActionCardDonation screen composable
+        composable("donate_hub") {
+            com.example.bloodlink.presentation.feature_donate.DonateHubScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToRequestDetail = { requestId -> navController.navigate("request_detail/$requestId") }
+            )
+        }
         // 1. The Search Input Screen
         composable("search_donors") {
             SearchDonorsScreen(

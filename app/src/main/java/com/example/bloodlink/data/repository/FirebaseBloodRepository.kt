@@ -545,8 +545,14 @@ class FirebaseBloodRepository @Inject constructor(
 
             if (!doc.exists()) throw Exception("Institution profile not found")
 
-            val liveInventory = doc.get("liveInventory") as? Map<String, Long>
-            val inStockGroups = liveInventory?.filter { (it.value ?: 0) > 0 }?.keys?.toList() ?: emptyList()
+            // 1. Safely extract the raw map from Firestore
+            val liveInventoryRaw = doc.get("liveInventory") as? Map<String, Any> ?: emptyMap()
+
+            // 2. Convert it safely into Kotlin Integers
+            val liveInventoryInt = liveInventoryRaw.mapValues { (it.value as? Number)?.toInt() ?: 0 }
+
+            // 3. Figure out which ones are greater than 0 for the UI chips
+            val inStockGroups = liveInventoryInt.filter { it.value > 0 }.keys.toList()
 
             val hospital = BloodBank(
                 id = doc.id,
@@ -555,7 +561,8 @@ class FirebaseBloodRepository @Inject constructor(
                 contactPhone = doc.getString("contactPhone") ?: "",
                 isOpen = doc.getBoolean("isOpen24x7") ?: true,
                 distanceKm = 0.0,
-                availableBloodGroups = inStockGroups
+                availableBloodGroups = inStockGroups,
+                liveInventory = liveInventoryInt // Pass the mapped numbers to our model!
             )
             Result.success(hospital)
         } catch (e: Exception) {

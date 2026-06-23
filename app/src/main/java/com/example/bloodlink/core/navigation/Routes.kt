@@ -28,6 +28,11 @@ object Routes {
     const val REQUEST_DETAIL = "request_detail"
     const val DONOR_DETAIL = "donor_detail"
 
+    //Hospital Profile Screens
+    const val INVENTORY_DASHBOARD = "inventory_dashboard"
+    const val HOSPITAL_PROFILE = "hospital_profile"
+    const val BLOOD_BANKS_MAP = "blood_banks_map"
+    const val EMERGENCY_ALERT = "emergency_alert"
 
 
     // Helper to create donor profile route

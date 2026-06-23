@@ -37,8 +37,25 @@ class InventoryViewModel @Inject constructor(
     private fun loadCurrentInventory() {
         viewModelScope.launch {
             _isLoading.value = true
-            // In a real app, you'd fetch the existing map from Firebase here and merge it with defaultInventory.
-            // For now, we start at 0 so they can initialize their vault.
+
+            // Fetch the live data from Firebase!
+            repository.getCurrentHospitalProfile().onSuccess { profile ->
+
+                // Create a temporary map starting with our defaults (all 0s)
+                val freshStock = _inventoryState.value.toMutableMap()
+
+                // Overwrite the 0s with the actual numbers saved in the database
+                profile.liveInventory.forEach { (bloodGroup, quantity) ->
+                    freshStock[bloodGroup] = quantity
+                }
+
+                // Update the UI instantly!
+                _inventoryState.value = freshStock
+
+            }.onFailure {
+                _errorMessage.value = "Failed to load current stock."
+            }
+
             _isLoading.value = false
         }
     }

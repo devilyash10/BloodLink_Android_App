@@ -8,9 +8,10 @@ data class BloodRequest(
     val hospitalName: String,
     val locationArea: String,
     val urgencyLevel: UrgencyLevel,
-    val unitsRequired: Int,      // NEW
+    val unitsRequired: Int = 1,      // NEW
     val additionalNotes: String, // NEW
     val timeAgo: String,
     val responsesCount: Int,
-    val status: RequestStatus
+    val status: RequestStatus,
+
 )

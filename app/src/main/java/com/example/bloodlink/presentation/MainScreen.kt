@@ -25,7 +25,9 @@ fun MainScreen() {
         "donor_list",
         "blood_banks",
         "my_requests",
-        "profile"
+        "profile",
+        "donor_profile",
+        "hospital_profile"
     )
 
     // 3. Safe check (currentRoute can be null on app launch)

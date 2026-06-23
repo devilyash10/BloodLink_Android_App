@@ -15,7 +15,6 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 
-// 1. Define the exact routes that match AppNavHost.kt
 sealed class BottomNavItem(val route: String, val title: String, val icon: ImageVector) {
     object Home : BottomNavItem("home", "Home", Icons.Default.Home)
     object Donors : BottomNavItem("search_donors", "Donors", Icons.Default.Search)
@@ -42,27 +41,33 @@ fun BottomNavBar(navController: NavController) {
         contentColor = Color.Gray
     ) {
         items.forEach { item ->
+
+            // --- THE HIGHLIGHT FIX ---
+            // If this is the Profile tab, stay highlighted for ALL profile variants!
+            val isSelected = if (item.route == "profile") {
+                currentRoute == "profile" || currentRoute == "donor_profile" || currentRoute == "hospital_profile"
+            } else {
+                currentRoute == item.route
+            }
+
             NavigationBarItem(
                 icon = { Icon(imageVector = item.icon, contentDescription = item.title) },
                 label = { Text(text = item.title) },
-                selected = currentRoute == item.route,
+                selected = isSelected, // Use our new logic here
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Color(0xFFE62129), // Your primary red
+                    selectedIconColor = Color(0xFFE62129),
                     selectedTextColor = Color(0xFFE62129),
-                    indicatorColor = Color(0xFFFFEBEE), // Light red background for selected tab
+                    indicatorColor = Color(0xFFFFEBEE),
                     unselectedIconColor = Color.Gray,
                     unselectedTextColor = Color.Gray
                 ),
                 onClick = {
                     if (currentRoute != item.route) {
                         navController.navigate(item.route) {
-                            // Pop up to the start destination of the graph to avoid building up a large stack
                             popUpTo(navController.graph.findStartDestination().id) {
                                 saveState = true
                             }
-                            // Avoid multiple copies of the same destination
                             launchSingleTop = true
-                            // Restore state when reselecting a previously selected item
                             restoreState = true
                         }
                     }

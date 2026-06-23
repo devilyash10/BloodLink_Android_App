@@ -10,8 +10,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bloodtype
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -26,27 +28,29 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.bloodlink.domain.model.BloodRequest
-import com.example.bloodlink.domain.model.UrgencyLevel
 
 @Composable
 fun HomeScreen(
+    onNavigateToDonateHub: () -> Unit,
     onNavigateToSearch: () -> Unit,
-    onNavigateToEmergency: () -> Unit,
+    onNavigateToCreateRequest: () -> Unit,//for Donors(I Need Blood)
+    onNavigateToNetworkAlerts: () -> Unit, //for Hospitals(Network Alerts)
     onNavigateToBloodBanks: () -> Unit,
     onNavigateToMyRequests: () -> Unit,
     onNavigateToRequestDetail: (String) -> Unit,
+    onNavigateToInventory: () -> Unit, // Added for Hospital routing
     viewModel: HomeViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
-    // 1. Observe the user data
-    val user by viewModel.userState.collectAsState()
+    // 1. Observe the NEW state variables from the updated HomeViewModel
+    val userName by viewModel.userName.collectAsState()
+    val isHospital by viewModel.isHospital.collectAsState()
 
     // 2. Observe the REAL-TIME Firebase blood requests!
     val bloodRequests by viewModel.bloodRequests.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    // Dynamically calculate stats
-    // Dynamically calculate stats (Placeholder until we add totalDonations to the User database model)
+    // Dynamically calculate stats for individuals
     val donations = 0
     val livesSaved = donations * 3
     val points = donations * 50
@@ -58,12 +62,12 @@ fun HomeScreen(
             .systemBarsPadding()
             .verticalScroll(rememberScrollState())
     ) {
-        // --- Top Red Header Section ---
+        // --- Top Header Section ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    color = Color(0xFFE62129),
+                    color = if (isHospital) Color(0xFF1976D2) else Color(0xFFE62129), // Blue for Hospital, Red for Donor
                     shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
                 )
                 .padding(horizontal = 24.dp, vertical = 32.dp)
@@ -74,10 +78,16 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    val firstName = user?.fullName?.substringBefore(" ") ?: "Loading"
-                    Text(text = "Hello, $firstName 👋", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    // Hospitals show their full name, individuals show their first name
+                    val displayName = if (isHospital || userName == "Loading...") userName else userName.substringBefore(" ")
+
+                    Text(text = "Hello, $displayName 👋", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = "Be a hero, donate blood", color = Color.White, fontSize = 14.sp)
+                    Text(
+                        text = if (isHospital) "BloodLink Enterprise Portal" else "Be a hero, donate blood",
+                        color = Color.White,
+                        fontSize = 14.sp
+                    )
                 }
                 Icon(
                     imageVector = Icons.Default.Notifications,
@@ -95,36 +105,59 @@ fun HomeScreen(
                 .padding(horizontal = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            MainActionCard(
-                title = "I Want to\nDonate",
-                subtitle = "Help someone in need",
-                iconTint = Color(0xFFE62129),
-                modifier = Modifier.weight(1f)
-            )
-            MainActionCard(
-                title = "I Need\nBlood",
-                subtitle = "Request blood\nin emergency",
-                iconTint = Color(0xFFE62129),
-                modifier = Modifier.weight(1f),
-                onClick = onNavigateToEmergency
-            )
-        }
-
-        // --- Impact Section ---
-        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-            Text(text = "Your Impact", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                ImpactItem(value = "$donations", label = "Donations", valueColor = Color(0xFF4CAF50))
-                ImpactItem(value = "$livesSaved", label = "Lives Saved", valueColor = Color(0xFFE62129))
-                ImpactItem(value = "$points", label = "Points", valueColor = Color(0xFFE62129))
+            if (isHospital) {
+                // ====== HOSPITAL CARDS ======
+                MainActionCard(
+                    title = "Manage\nVault",
+                    subtitle = "Update live inventory",
+                    iconTint = Color(0xFF1976D2),
+                    icon = Icons.Default.Bloodtype,
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateToInventory
+                )
+                MainActionCard(
+                    title = "Network\nAlerts",
+                    subtitle = "View active emergencies",
+                    iconTint = Color(0xFFF57C00),
+                    icon = Icons.Default.Warning,
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateToNetworkAlerts // Or map to requests
+                )
+            } else {
+                // ====== DONOR CARDS ======
+                MainActionCard(
+                    title = "I Want to\nDonate",
+                    subtitle = "Help someone in need",
+                    iconTint = Color(0xFFE62129),
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateToDonateHub
+                )
+                MainActionCard(
+                    title = "I Need\nBlood",
+                    subtitle = "Request blood\nin emergency",
+                    iconTint = Color(0xFFE62129),
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateToCreateRequest
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        // --- Impact Section (ONLY for Individual Donors) ---
+        if (!isHospital) {
+            Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                Text(text = "Your Impact", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    ImpactItem(value = "$donations", label = "Donations", valueColor = Color(0xFF4CAF50))
+                    ImpactItem(value = "$livesSaved", label = "Lives Saved", valueColor = Color(0xFFE62129))
+                    ImpactItem(value = "$points", label = "Points", valueColor = Color(0xFFE62129))
+                }
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
 
         // --- Quick Actions Section ---
         Column(modifier = Modifier.padding(horizontal = 24.dp)) {
@@ -136,7 +169,7 @@ fun HomeScreen(
             ) {
                 QuickActionItem(iconRes = android.R.drawable.ic_menu_search, label = "Search Donors", onClick = onNavigateToSearch)
                 QuickActionItem(iconRes = android.R.drawable.ic_menu_mapmode, label = "Blood Banks", onClick = onNavigateToBloodBanks)
-                QuickActionItem(iconRes = android.R.drawable.ic_dialog_alert, label = "Emergency", onClick = onNavigateToEmergency)
+                QuickActionItem(iconRes = android.R.drawable.ic_dialog_alert, label = "Emergency Request", onClick = onNavigateToCreateRequest)
                 QuickActionItem(iconRes = android.R.drawable.ic_menu_recent_history, label = "My Requests", onClick = onNavigateToMyRequests)
             }
         }
@@ -167,7 +200,6 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 24.dp)
                 )
             } else {
-                // Horizontal Swiping List for Requests
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(horizontal = 24.dp)
@@ -175,6 +207,7 @@ fun HomeScreen(
                     items(bloodRequests) { request ->
                         RequestItemCard(
                             request = request,
+                            modifier = Modifier.width(280.dp), // Keeps it nice and horizontal for Home!
                             onClick = { onNavigateToRequestDetail(request.requestId) }
                         )
                     }
@@ -186,10 +219,17 @@ fun HomeScreen(
     }
 }
 
-// --- YOUR EXISTING UI COMPONENTS ---
+// --- UPDATED UI COMPONENTS ---
 
 @Composable
-fun MainActionCard(title: String, subtitle: String, iconTint: Color, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
+fun MainActionCard(
+    title: String,
+    subtitle: String,
+    iconTint: Color,
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null, // Added to support proper Hospital Icons
+    onClick: () -> Unit = {}
+) {
     Card(
         modifier = modifier.clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
@@ -198,10 +238,14 @@ fun MainActionCard(title: String, subtitle: String, iconTint: Color, modifier: M
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Box(
-                modifier = Modifier.size(40.dp).background(Color(0xFFFFEBEE), CircleShape),
+                modifier = Modifier.size(40.dp).background(if (icon != null) Color(0xFFE3F2FD) else Color(0xFFFFEBEE), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text("🩸", fontSize = 20.sp)
+                if (icon != null) {
+                    Icon(imageVector = icon, contentDescription = null, tint = iconTint)
+                } else {
+                    Text("🩸", fontSize = 20.sp)
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(text = title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -249,18 +293,17 @@ fun QuickActionItem(iconRes: Int, label: String, onClick: () -> Unit) {
         Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
-
-// --- NEW COMPOSABLE FOR THE LIVE DATA ---
-
 @Composable
-fun RequestItemCard(request: BloodRequest, onClick: () -> Unit) {
+fun RequestItemCard(
+    request: BloodRequest,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier // ADDED: This lets us control the width dynamically!
+) {
     Card(
-        modifier = Modifier
-            .width(280.dp) // Fixed width so they look great in a scrolling row
-            .clickable { onClick() },
+        modifier = modifier.clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -277,25 +320,36 @@ fun RequestItemCard(request: BloodRequest, onClick: () -> Unit) {
                     Text(text = request.bloodGroup, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
 
-                // Urgency Badge
-                // Urgency Badge (Now handles LOW and MEDIUM via the else branch)
-                val urgencyColor = when(request.urgencyLevel.name) {
-                    "CRITICAL" -> Color(0xFFD32F2F) // Deep Red
-                    "HIGH" -> Color(0xFFF57C00) // Orange
-                    else -> Color(0xFF388E3C) // Green (Handles NORMAL, MEDIUM, LOW)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // --- NEW: Premium Units Needed Indicator ---
+                    Text(
+                        text = "Need: ${request.unitsRequired} Unit(s)",
+                        color = Color.DarkGray,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .background(Color(0xFFF5F5F5), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    val urgencyColor = when(request.urgencyLevel.name) {
+                        "CRITICAL" -> Color(0xFFD32F2F)
+                        "HIGH" -> Color(0xFFF57C00)
+                        else -> Color(0xFF388E3C)
+                    }
+                    Text(
+                        text = request.urgencyLevel.name,
+                        color = urgencyColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
                 }
-                Text(
-                    text = request.urgencyLevel.name,
-                    color = urgencyColor,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
-                )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
+            Spacer(modifier = Modifier.height(16.dp))
             Text(text = request.patientName, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -305,7 +359,7 @@ fun RequestItemCard(request: BloodRequest, onClick: () -> Unit) {
                     text = request.hospitalName,
                     color = Color.Gray,
                     fontSize = 14.sp,
-                    maxLines = 1 // Keeps the card height consistent
+                    maxLines = 1
                 )
             }
         }
