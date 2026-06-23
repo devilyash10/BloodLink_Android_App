@@ -1,5 +1,7 @@
 package com.example.bloodlink.presentation.feature_bloodbanks.list
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -20,8 +22,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,13 +34,15 @@ import com.example.bloodlink.presentation.components.common.CustomTopAppBar
 @Composable
 fun BloodBanksScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToMap: () -> Unit, // Added Navigation for the Map
+    onNavigateToMap: () -> Unit,
     viewModel: BloodBanksViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
     val bloodBanks by viewModel.filteredBloodBanks.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+
+    val context = LocalContext.current
 
     Scaffold(
         floatingActionButton = {
@@ -92,7 +96,24 @@ fun BloodBanksScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(bloodBanks) { bank ->
-                        ImprovedBloodBankCard(bloodBank = bank)
+                        ImprovedBloodBankCard(
+                            bloodBank = bank,
+                            onCallClick = {
+                                val intent = Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:${bank.contactPhone}") }
+                                context.startActivity(intent)
+                            },
+                            onDirectionsClick = {
+                                val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(bank.name + " " + bank.address)}")
+                                val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri).apply {
+                                    setPackage("com.google.android.apps.maps")
+                                }
+                                if (mapIntent.resolveActivity(context.packageManager) != null) {
+                                    context.startActivity(mapIntent)
+                                } else {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://maps.google.com/?q=${Uri.encode(bank.name + " " + bank.address)}")))
+                                }
+                            }
+                        )
                     }
                 }
             }
@@ -102,16 +123,19 @@ fun BloodBanksScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ImprovedBloodBankCard(bloodBank: BloodBank) {
+fun ImprovedBloodBankCard(
+    bloodBank: BloodBank,
+    onCallClick: () -> Unit,
+    onDirectionsClick: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), // Flat design
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(16.dp),
-        border = border(1.dp, Color(0xFFEEEEEE), RoundedCornerShape(16.dp)) // Subtle border
+        border = border(1.dp, Color(0xFFEEEEEE), RoundedCornerShape(16.dp))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header: Icon, Name, and Status
             Row(verticalAlignment = Alignment.Top) {
                 Box(
                     modifier = Modifier
@@ -156,24 +180,27 @@ fun ImprovedBloodBankCard(bloodBank: BloodBank) {
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                bloodBank.availableBloodGroups.forEach { group ->
-                    Box(
-                        modifier = Modifier
-                            .border(1.dp, Color(0xFFE62129).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                            .background(Color.White, RoundedCornerShape(8.dp))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(text = group, color = Color(0xFFE62129), fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                if (bloodBank.availableBloodGroups.isEmpty()) {
+                    Text(text = "No stock data available", color = Color.Gray, fontSize = 13.sp)
+                } else {
+                    bloodBank.availableBloodGroups.forEach { group ->
+                        Box(
+                            modifier = Modifier
+                                .border(1.dp, Color(0xFFE62129).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .background(Color.White, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(text = group, color = Color(0xFFE62129), fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Action Buttons
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(
-                    onClick = { /* TODO */ },
+                    onClick = onCallClick, // WIRED UP!
                     modifier = Modifier.weight(1f).height(48.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.DarkGray),
                     border = border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(12.dp)),
@@ -185,7 +212,7 @@ fun ImprovedBloodBankCard(bloodBank: BloodBank) {
                 }
 
                 Button(
-                    onClick = { /* TODO */ },
+                    onClick = onDirectionsClick, // WIRED UP!
                     modifier = Modifier.weight(1f).height(48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE62129)),
                     shape = RoundedCornerShape(12.dp)
@@ -199,12 +226,5 @@ fun ImprovedBloodBankCard(bloodBank: BloodBank) {
     }
 }
 
-// Helper for borders since ButtonDefaults.outlinedButtonBorder can be finicky
 fun border(width: androidx.compose.ui.unit.Dp, color: Color, shape: androidx.compose.ui.graphics.Shape) =
     androidx.compose.foundation.BorderStroke(width, color)
-//
-//@Preview(showBackground = true)
-//@Composable
-//fun BloodBanksScreenPreview() {
-//    BloodBanksScreen(onNavigateBack = {})
-//}

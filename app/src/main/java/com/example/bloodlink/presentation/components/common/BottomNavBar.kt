@@ -18,7 +18,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 // 1. Define the exact routes that match AppNavHost.kt
 sealed class BottomNavItem(val route: String, val title: String, val icon: ImageVector) {
     object Home : BottomNavItem("home", "Home", Icons.Default.Home)
-    object Donors : BottomNavItem("donor_list", "Donors", Icons.Default.Search)
+    object Donors : BottomNavItem("search_donors", "Donors", Icons.Default.Search)
     object BloodBanks : BottomNavItem("blood_banks", "Banks", Icons.Default.LocalHospital)
     object Requests : BottomNavItem("my_requests", "Requests", Icons.Default.List)
     object Profile : BottomNavItem("profile", "Profile", Icons.Default.Person)

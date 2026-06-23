@@ -14,9 +14,11 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,11 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.bloodlink.presentation.feature_profile.main.ProfileViewModel
-
 
 @Composable
 fun ProfileScreen(
@@ -42,39 +40,28 @@ fun ProfileScreen(
     onLogOut: () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
-    // 1. Missing Context (fixes the Toast errors)
     val context = LocalContext.current
-
-    // 2. Missing User State (fixes the user?.bloodGroup and user?.fullName errors)
     val user by viewModel.currentUser.collectAsState()
-
-    // 3. UI State for showing/hiding the Dialog
-    var showLogoutDialog by remember { mutableStateOf(false) }
-
-    // 4. ViewModel State
     val logoutEvent by viewModel.logoutEvent.collectAsState()
 
-    // 5. Watch for successful logout from the ViewModel
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
     LaunchedEffect(logoutEvent) {
         if (logoutEvent) {
-            onLogOut() // Navigates away when Firebase confirms the logout
+            onLogOut()
         }
     }
 
-    // --- THE DIALOG ---
+    // --- THE LOGOUT DIALOG ---
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
             title = { Text("Log Out") },
             text = { Text("Are you sure you want to log out of your account?") },
+            containerColor = Color.White,
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        showLogoutDialog = false
-                        viewModel.logout() // Tell the ViewModel to do the heavy lifting!
-                    }
-                ) {
-                    Text("Yes, Log Out", color = Color.Red)
+                TextButton(onClick = { showLogoutDialog = false; viewModel.logout() }) {
+                    Text("Yes, Log Out", color = Color(0xFFE62129), fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -85,14 +72,14 @@ fun ProfileScreen(
         )
     }
 
-    // --- MAIN UI (Your Exact Design) ---
+    // --- MAIN UI ---
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFFAFAFA))
             .verticalScroll(rememberScrollState())
     ) {
-        // --- HEADER SECTION ---
+        // --- HEADER SECTION (Unchanged, matches your screenshot perfectly) ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -118,13 +105,76 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // --- MENU OPTIONS ---
+        // --- NEW: MEDICAL & STATUS CARD ---
+        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+            Text(text = "Medical & Status", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+
+                    // Location
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.LocationCity, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Registered City", color = Color.Gray, fontSize = 12.sp)
+                            Text(user?.city ?: "--", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFF5F5F5))
+
+                    // Donations
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.WaterDrop, contentDescription = null, tint = Color(0xFFE62129), modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Total Donations", color = Color.Gray, fontSize = 12.sp)
+                            Text("${user?.totalDonations ?: 0} Times", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFF5F5F5))
+
+                    // Availability Toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Available to Donate", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("You appear in donor searches", color = Color.Gray, fontSize = 12.sp)
+                        }
+                        Switch(
+                            checked = user?.isAvailableAsDonor ?: false,
+                            onCheckedChange = { isChecked -> viewModel.toggleAvailability(isChecked) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFF4CAF50),
+                                uncheckedThumbColor = Color.White,
+                                uncheckedTrackColor = Color.LightGray
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // --- MENU OPTIONS (Unchanged from your clean layout) ---
         Column(modifier = Modifier.padding(horizontal = 24.dp)) {
 
             ProfileMenuItem(icon = Icons.Default.Person, title = "Edit Profile", onClick = onNavigateToEditProfile)
             ProfileMenuItem(icon = Icons.Default.Settings, title = "Settings", onClick = onNavigateToSettings)
 
-            // Replaced dummy actions with Toasts
             ProfileMenuItem(
                 icon = Icons.Default.History,
                 title = "Donation History",
@@ -149,9 +199,9 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- LOGOUT BUTTON (Triggers dialog) ---
+            // --- LOGOUT BUTTON ---
             Button(
-                onClick = { showLogoutDialog = true }, // Opens Dialog instead of logging out directly
+                onClick = { showLogoutDialog = true },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFEBEE)),
                 shape = RoundedCornerShape(12.dp),
@@ -168,11 +218,7 @@ fun ProfileScreen(
 }
 
 @Composable
-fun ProfileMenuItem(
-    icon: ImageVector,
-    title: String,
-    onClick: () -> Unit
-) {
+fun ProfileMenuItem(icon: ImageVector, title: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

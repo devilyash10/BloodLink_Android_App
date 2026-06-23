@@ -1,11 +1,11 @@
 package com.example.bloodlink.domain.model
 
 data class BloodBank(
-    val id: String,
-    val name: String,
-    val address: String,
-    val distanceKm: Double,
-    val phoneNumber: String,
-    val isOpen: Boolean,
-    val availableBloodGroups: List<String> // e.g., ["O+", "A+", "B-"]
+    val id: String = "",
+    val name: String = "",
+    val address: String = "",
+    val contactPhone: String = "", // Crucial for the Call button
+    val isOpen: Boolean = true,
+    val distanceKm: Double = 0.0,
+    val availableBloodGroups: List<String> = emptyList() // We will extract this from liveInventory!
 )

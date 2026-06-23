@@ -6,6 +6,15 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import android.net.Uri
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.bloodlink.presentation.feature_auth.login.LoginScreen
 import com.example.bloodlink.presentation.feature_auth.onboarding.OnboardingScreen
 import com.example.bloodlink.presentation.feature_auth.signup.SignUpScreen
@@ -20,6 +29,7 @@ import com.example.bloodlink.presentation.feature_emergency.my_request.MyRequest
 import com.example.bloodlink.presentation.feature_emergency.success.RequestSentScreen
 import com.example.bloodlink.presentation.feature_home.HomeScreen
 import com.example.bloodlink.presentation.feature_notifications.NotificationsScreen
+import com.example.bloodlink.presentation.feature_profile.ProfileRouterScreen
 import com.example.bloodlink.presentation.feature_profile.about.AboutUsScreen
 import com.example.bloodlink.presentation.feature_profile.edit.EditProfileScreen
 import com.example.bloodlink.presentation.feature_profile.history.DonationHistoryScreen
@@ -68,7 +78,7 @@ fun AppNavHost(
         // --- MAIN TABS (Bottom Bar Routes) ---
         composable("home") {
             HomeScreen(
-                onNavigateToSearch = { navController.navigate("donor_list") },
+                onNavigateToSearch = { navController.navigate("search_donors") },
                 onNavigateToEmergency = { navController.navigate("emergency_request") },
                 onNavigateToBloodBanks = { navController.navigate("blood_banks") },
                 onNavigateToMyRequests = { navController.navigate("my_requests") },
@@ -76,12 +86,12 @@ fun AppNavHost(
             )
         }
 
-        composable("donor_list") {
-            DonorListScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onDonorClick = { donorId -> navController.navigate("donor_profile/$donorId") }
-            )
-        }
+//        composable("donor_list") {
+//            DonorListScreen(
+//                onNavigateBack = { navController.popBackStack() },
+//                onDonorClick = { donorId -> navController.navigate("donor_profile/$donorId") }
+//            )
+//        }
 
         composable("blood_banks") {
             BloodBanksScreen(
@@ -97,8 +107,13 @@ fun AppNavHost(
                 onCreateNewRequest = { navController.navigate("emergency_request") }
             )
         }
+        composable("profile"){
+            ProfileRouterScreen(
+                navController = navController
+            )
+        }
 
-        composable("profile") {
+        composable("donor_profile") {
             ProfileScreen(
                 onNavigateToEditProfile = { navController.navigate("edit_profile") },
                 onNavigateToSettings = { navController.navigate("settings") },
@@ -106,6 +121,38 @@ fun AppNavHost(
                 onLogOut = {
                     navController.navigate("login") { popUpTo(0) { inclusive = true } }
                 }
+            )
+        }
+        // 3. The New Hospital Profile
+        composable("hospital_profile") {
+            // Grab the ViewModel we just created
+            val viewModel: com.example.bloodlink.presentation.feature_profile.hospital.HospitalProfileViewModel = hiltViewModel()
+            val hospital by viewModel.hospitalData.collectAsState()
+            val logoutEvent by viewModel.logoutEvent.collectAsState()
+
+            LaunchedEffect(logoutEvent) {
+                if (logoutEvent) navController.navigate("login") { popUpTo(0) }
+            }
+
+            if (hospital != null) {
+                com.example.bloodlink.presentation.feature_profile.hospital.HospitalProfileScreen(
+                    hospitalName = hospital!!.name,
+                    licenseNumber = "Verified: ${hospital!!.id.take(8).uppercase()}",
+                    onNavigateToInventory = { navController.navigate("inventory_dashboard") },
+                    onNavigateToSettings = { navController.navigate("settings") },
+                    onLogOut = { viewModel.logout() }
+                )
+            } else {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    androidx.compose.material3.CircularProgressIndicator(color = androidx.compose.ui.graphics.Color(0xFF1976D2))
+                }
+            }
+        }
+
+        // 4. The Inventory Management Dashboard
+        composable("inventory_dashboard") {
+            com.example.bloodlink.presentation.feature_inventory.InventoryDashboardScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -148,10 +195,40 @@ fun AppNavHost(
             )
         }
 
+        // 1. The Search Input Screen
         composable("search_donors") {
             SearchDonorsScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onSearchClicked = { navController.navigate("donor_list") }
+                onSearchClicked = { bloodGroup, query, distance ->
+
+                    // THE FIX: Safely encode the strings so "+" doesn't turn into a space!
+                    val encodedBlood = Uri.encode(bloodGroup)
+                    val safeQuery = query.ifBlank { "ALL" }
+                    val encodedQuery = Uri.encode(safeQuery)
+
+                    navController.navigate("donor_list?bloodGroup=$encodedBlood&query=$encodedQuery&distance=$distance")
+                }
+            )
+        }
+
+        // 2. The Donor List (Results) Screen
+        composable(
+            route = "donor_list?bloodGroup={bloodGroup}&query={query}&distance={distance}",
+            arguments = listOf(
+                navArgument("bloodGroup") { defaultValue = "All" },
+                navArgument("query") { defaultValue = "ALL" },
+                navArgument("distance") {
+                    type = NavType.FloatType
+                    defaultValue = 5f
+                }
+            )
+        ) {
+            DonorListScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToProfile = { donorId ->
+                    // Future step: Navigate to DonorProfileScreen
+                    navController.navigate("donor_profile/$donorId")
+                }
             )
         }
 

@@ -112,7 +112,7 @@ class FirebaseBloodRepository @Inject constructor(
                         name = doc.getString("name") ?: "Unknown Blood Bank",
                         address = doc.getString("address") ?: "No address provided",
                         distanceKm = (1..15).random().toDouble(), // Random distance until Maps API is added
-                        phoneNumber = doc.getString("contactPhone") ?: "",
+                        contactPhone = doc.getString("contactPhone") ?: "",
                         isOpen = doc.getBoolean("isOpen24x7") ?: true,
                         availableBloodGroups = availableGroups
                     )
@@ -430,6 +430,150 @@ class FirebaseBloodRepository @Inject constructor(
                 .document(requestId)
                 .update("status", "COMPLETED")
                 .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    //this feature turn on off the donor availability feature
+    override suspend fun updateDonorAvailability(isAvailable: Boolean): Result<Unit> {
+        return try {
+            val uid = auth.currentUser?.uid ?: throw Exception("User not logged in")
+
+            firestore.collection("users")
+                .document(uid)
+                .update("isAvailableAsDonor", isAvailable)
+                .await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    override suspend fun searchDonors(bloodGroup: String, city: String): Result<List<User>> {
+        return try {
+            // 1. Fetch ALL users to completely bypass Firebase schema mismatches
+            val snapshot = firestore.collection("users").get().await()
+
+            val currentUserId = auth.currentUser?.uid
+
+            val allDonors = snapshot.documents.mapNotNull { doc ->
+                try {
+                    com.example.bloodlink.domain.model.User(
+                        id = doc.id,
+                        fullName = doc.getString("fullName") ?: "Unknown",
+                        phoneNumber = doc.getString("phoneNumber") ?: "",
+                        bloodGroup = doc.getString("bloodGroup") ?: "",
+                        city = doc.getString("city") ?: "",
+                        // Default older test accounts to true so they show up!
+                        isAvailableAsDonor = doc.getBoolean("isAvailableAsDonor") ?: true,
+                        totalDonations = doc.getLong("totalDonations")?.toInt() ?: 0,
+                        // Default older test accounts to INDIVIDUAL
+                        userType = doc.getString("userType") ?: "INDIVIDUAL"
+                    )
+                } catch (e: Exception) {
+                    null
+                }
+            }
+
+            // 2. Filter everything securely in Kotlin
+            val filtered = allDonors.filter { donor ->
+                // Must be available and an individual
+                val isAvailable = donor.isAvailableAsDonor
+                val isIndividual = donor.userType == "INDIVIDUAL"
+
+                // Must NOT be the person who is currently logged in!
+                val isNotMe = donor.id != currentUserId
+
+                // Match Blood Group
+                val matchBlood = if (bloodGroup == "All" || bloodGroup.isBlank()) true else donor.bloodGroup.trim() == bloodGroup.trim()
+
+                // Match City (Case-insensitive)
+                val matchCity = if (city.isBlank()) true else donor.city.contains(city.trim(), ignoreCase = true)
+
+                // If all these are true, keep the donor in the list!
+                isAvailable && isIndividual && isNotMe && matchBlood && matchCity
+            }
+
+            Result.success(filtered)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    // Make sure your interface in BloodRepository.kt is also set to return Result<List<BloodBank>>
+    override suspend fun getBloodBanks(): Result<List<BloodBank>> {
+        return try {
+            val snapshot = firestore.collection("institutions").get().await()
+
+            // 1. Get the ID of the hospital currently using the app
+            val currentUserId = auth.currentUser?.uid
+
+            val banks = snapshot.documents.mapNotNull { doc ->
+
+                // 2. THE FIX: If this document is MY hospital, skip it!
+                if (doc.id == currentUserId) return@mapNotNull null
+
+                try {
+                    val liveInventory = doc.get("liveInventory") as? Map<String, Long>
+                    val inStockGroups = liveInventory?.filter { (it.value ?: 0) > 0 }?.keys?.toList() ?: emptyList()
+
+                    BloodBank(
+                        id = doc.id,
+                        name = doc.getString("name") ?: "Unknown Bank",
+                        address = doc.getString("address") ?: "",
+                        contactPhone = doc.getString("contactPhone") ?: "",
+                        isOpen = doc.getBoolean("isOpen24x7") ?: true,
+                        distanceKm = 5.0,
+                        availableBloodGroups = inStockGroups
+                    )
+                } catch (e: Exception) {
+                    null
+                }
+            }
+
+            android.util.Log.d("BANK_DEBUG", "Successfully pulled ${banks.size} banks from the institutions collection!")
+            Result.success(banks)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getCurrentHospitalProfile(): Result<BloodBank> {
+        return try {
+            val uid = auth.currentUser?.uid ?: throw Exception("Hospital not logged in")
+            val doc = firestore.collection("institutions").document(uid).get().await()
+
+            if (!doc.exists()) throw Exception("Institution profile not found")
+
+            val liveInventory = doc.get("liveInventory") as? Map<String, Long>
+            val inStockGroups = liveInventory?.filter { (it.value ?: 0) > 0 }?.keys?.toList() ?: emptyList()
+
+            val hospital = BloodBank(
+                id = doc.id,
+                name = doc.getString("name") ?: "Unknown Hospital",
+                address = doc.getString("address") ?: "",
+                contactPhone = doc.getString("contactPhone") ?: "",
+                isOpen = doc.getBoolean("isOpen24x7") ?: true,
+                distanceKm = 0.0,
+                availableBloodGroups = inStockGroups
+            )
+            Result.success(hospital)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateHospitalInventory(newInventory: Map<String, Int>): Result<Unit> {
+        return try {
+            val uid = auth.currentUser?.uid ?: throw Exception("Hospital not logged in")
+
+            // Batch update: Saves the inventory AND stamps the exact server time
+            val updates = mapOf(
+                "liveInventory" to newInventory,
+                "lastInventoryUpdate" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+            )
+
+            firestore.collection("institutions").document(uid).update(updates).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

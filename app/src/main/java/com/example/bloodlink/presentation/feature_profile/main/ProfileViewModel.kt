@@ -52,4 +52,18 @@ class ProfileViewModel @Inject constructor(
             _logoutEvent.value = true
         }
     }
+    fun toggleAvailability(isAvailable: Boolean) {
+        viewModelScope.launch {
+            // 1. Optimistic UI Update (flips the switch instantly on screen)
+            val currentUserData = _currentUser.value ?: return@launch
+            _currentUser.value = currentUserData.copy(isAvailableAsDonor = isAvailable)
+
+            // 2. Background Firebase Sync
+            bloodRepository.updateDonorAvailability(isAvailable).onFailure {
+                _errorMessage.value = "Failed to update status. Please try again."
+                // Revert the switch if Firebase fails
+                _currentUser.value = currentUserData.copy(isAvailableAsDonor = !isAvailable)
+            }
+        }
+    }
 }

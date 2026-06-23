@@ -17,7 +17,8 @@ import com.example.bloodlink.presentation.components.inputs.SearchBar
 @Composable
 fun SearchDonorsScreen(
     onNavigateBack: () -> Unit,
-    onSearchClicked: () -> Unit,
+    // UPDATED: Now passes the filters out to the NavHost!
+    onSearchClicked: (bloodGroup: String, query: String, distance: Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -87,7 +88,7 @@ fun SearchDonorsScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("1 KM", color = Color.Gray, fontSize = 12.sp)
+            Text("${distance.toInt()} KM", color = Color(0xFFE62129), fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Text("50 KM", color = Color.Gray, fontSize = 12.sp)
         }
 
@@ -95,7 +96,8 @@ fun SearchDonorsScreen(
 
         PrimaryRedButton(
             text = "Search Donors",
-            onClick = onSearchClicked,
+            // UPDATED: Fires the callback with the current state values
+            onClick = { onSearchClicked(selectedBloodGroup, searchQuery, distance) },
             modifier = Modifier.fillMaxWidth()
         )
 

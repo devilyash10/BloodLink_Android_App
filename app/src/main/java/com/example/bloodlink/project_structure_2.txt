@@ -168,3 +168,8 @@ com.bloodlink.app
             ├── SettingsScreen.kt       // Push notification toggles, etc.
             ├── HelpSupportScreen.kt
             └── AboutUsScreen.kt
+
+
+
+Impliment a routine donation feature
+impliment you can donate to these blood groups only feature while listing requests and donaor lists and notifications

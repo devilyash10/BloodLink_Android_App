@@ -39,4 +39,11 @@ interface BloodRepository {
 
     suspend fun getRespondingHeroes(requestId: String): Result<List<User>>
     suspend fun markRequestCompleted(requestId: String): Result<Unit>
+    //suspend fun updateDonorAvailability(donorId: String, isAvailable: Boolean): Result<Unit>
+    suspend fun updateDonorAvailability(isAvailable: Boolean): Result<Unit>
+
+    suspend fun searchDonors(bloodGroup: String, city: String): Result<List<User>>
+    suspend fun getBloodBanks(): Result<List<BloodBank>>
+    suspend fun getCurrentHospitalProfile(): Result<BloodBank>
+    suspend fun updateHospitalInventory(newInventory: Map<String, Int>): Result<Unit>
 }

@@ -40,19 +40,39 @@ class FirebaseAuthRepository @Inject constructor(
             val authResult = auth.createUserWithEmailAndPassword(email, password).await()
             val uid = authResult.user?.uid ?: throw Exception("User instantiation failed.")
 
-            // Build matching user profile document architecture
-            val userData = mapOf(
-                "fullName" to fullName,
-                "bloodGroup" to bloodGroup,
-                "city" to city,
-                "phoneNumber" to phoneNumber,
-                "email" to email,
-                userType to userType,
-                "isAvailableAsDonor" to (userType == "INDIVIDUAL"),
-                "createdAt" to Timestamp.now()
-            )
+            // --- THE ROUTER ---
+            if (userType == "HOSPITAL") {
+                // 1. Save to the "institutions" collection
+                val institutionData = mapOf(
+                    "name" to fullName, // From the "Hospital Name" text field
+                    "institutionType" to "HOSPITAL",
+                    "address" to city,
+                    "contactPhone" to phoneNumber,
+                    "contactEmail" to email,
+                    "isOpen24x7" to true,
+                    "liveInventory" to emptyMap<String, Long>(), // Starts with 0 stock
+                    "createdAt" to com.google.firebase.Timestamp.now()
+                )
 
-            firestore.collection("users").document(uid).set(userData).await()
+                firestore.collection("institutions").document(uid).set(institutionData).await()
+
+            } else {
+                // 2. Save to the standard "users" collection
+                val userData = mapOf(
+                    "fullName" to fullName,
+                    "bloodGroup" to bloodGroup,
+                    "city" to city,
+                    "phoneNumber" to phoneNumber,
+                    "email" to email,
+                    "userType" to "INDIVIDUAL",
+                    "isAvailableAsDonor" to true,
+                    "totalDonations" to 0,
+                    "createdAt" to com.google.firebase.Timestamp.now()
+                )
+
+                firestore.collection("users").document(uid).set(userData).await()
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

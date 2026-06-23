@@ -26,23 +26,22 @@ class SettingsViewModel @Inject constructor(
     private fun loadUserProfile() {
         viewModelScope.launch {
             _isLoading.value = true
-            try {
-                _currentUser.value = repository.getCurrentUser()
-            } catch (e: Exception) {
-                _errorMessage.value = "Could not load user data"
-            } finally {
-                _isLoading.value = false
-            }
+            _currentUser.value = repository.getCurrentUser()
+            _isLoading.value = false
         }
     }
 
-    fun logOut() {
-        // In the future, this will clear the Room Database and Firebase session
+    fun toggleAvailability(isAvailable: Boolean) {
         viewModelScope.launch {
-            // Simulate logout delay
-            _isLoading.value = true
-            kotlinx.coroutines.delay(500)
-            _isLoading.value = false
+            // 1. Optimistic UI Update (flips the switch instantly on screen)
+            _currentUser.value = _currentUser.value?.copy(isAvailableAsDonor = isAvailable)
+
+            // 2. Background Firebase Sync
+            repository.updateDonorAvailability(isAvailable).onFailure { error ->
+                _errorMessage.value = "Failed to update status. Please try again."
+                // Revert the switch if Firebase fails
+                _currentUser.value = _currentUser.value?.copy(isAvailableAsDonor = !isAvailable)
+            }
         }
     }
 }
