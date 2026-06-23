@@ -542,4 +542,44 @@ class FirebaseBloodRepository @Inject constructor(
             Result.failure(e)
         }
     }
+    override suspend fun resolveRequestWithOutsideSource(requestId: String): Result<Unit> {
+        return try {
+            firestore.collection("blood_requests")
+                .document(requestId)
+                .update("status", "COMPLETED")
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun resolveRequestWithHero(requestId: String, heroId: String): Result<Unit> {
+        return try {
+            val requestRef = firestore.collection("blood_requests").document(requestId)
+            val heroRef = firestore.collection("users").document(heroId)
+            val historyRef = heroRef.collection("donation_history").document(requestId)
+
+            firestore.runTransaction { transaction ->
+                // 1. Mark request as completed and link the completing hero
+                transaction.update(requestRef, "status", "COMPLETED")
+                transaction.update(requestRef, "fulfilledBy", heroId)
+
+                // 2. Increment Hero stats dynamically (Impact, Total Donations)
+                transaction.update(heroRef, "totalDonations", com.google.firebase.firestore.FieldValue.increment(1))
+
+                // 3. Log a reference record into the Hero's localized history collection
+                val historyLog = hashMapOf(
+                    "requestId" to requestId,
+                    "completedAt" to com.google.firebase.Timestamp.now(),
+                    "type" to "DIRECT_DONATION"
+                )
+                transaction.set(historyRef, historyLog)
+            }.await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

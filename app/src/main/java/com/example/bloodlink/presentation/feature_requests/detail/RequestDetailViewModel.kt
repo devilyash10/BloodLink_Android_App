@@ -40,18 +40,22 @@ class RequestDetailViewModel @Inject constructor(
     private val _respondingHeroes = MutableStateFlow<List<User>>(emptyList())
     val respondingHeroes: StateFlow<List<User>> = _respondingHeroes.asStateFlow()
 
-    // NEW: Fetch the creator's phone number for the Call/Message buttons
     private val _requesterPhone = MutableStateFlow("")
     val requesterPhone: StateFlow<String> = _requesterPhone.asStateFlow()
+
+    private val _requesterName = MutableStateFlow("Loading...")
+    val requesterName: StateFlow<String> = _requesterName.asStateFlow()
+
+    private val _requesterType = MutableStateFlow("INDIVIDUAL")
+    val requesterType: StateFlow<String> = _requesterType.asStateFlow()
 
     init {
         loadRequestDetails()
     }
 
-    private fun loadRequestDetails() {
+    fun loadRequestDetails() {
         viewModelScope.launch {
             _isLoading.value = true
-
             val user = repository.getCurrentUser()
             if (user != null) {
                 _currentUser.value = user
@@ -66,9 +70,14 @@ class RequestDetailViewModel @Inject constructor(
                 val currentUserId = user?.id ?: ""
                 _isOwner.value = currentUserId == req.createdBy
 
-                // Fetch the creator's profile to get their phone number
                 repository.getUserById(req.createdBy).onSuccess { creator ->
-                    _requesterPhone.value = creator.phoneNumber
+                    _requesterName.value = creator.fullName
+                    _requesterPhone.value = creator.phoneNumber.ifBlank { "0000000000" }
+                    _requesterType.value = "INDIVIDUAL"
+                }.onFailure {
+                    _requesterName.value = req.hospitalName.ifBlank { "Hospital Network" }
+                    _requesterPhone.value = "+91 1800-123-4567"
+                    _requesterType.value = "HOSPITAL"
                 }
 
                 repository.getRespondingHeroes(req.requestId).onSuccess { heroes ->
@@ -77,7 +86,6 @@ class RequestDetailViewModel @Inject constructor(
             }.onFailure {
                 _errorMessage.value = "Failed to load request details."
             }
-
             _isLoading.value = false
         }
     }
@@ -86,7 +94,7 @@ class RequestDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             repository.acceptBloodRequest(requestId).onSuccess {
-                loadRequestDetails() // Refresh UI to update the "Already Responded" state!
+                loadRequestDetails()
             }.onFailure { error ->
                 _errorMessage.value = error.localizedMessage ?: "Failed to respond."
             }
@@ -94,11 +102,25 @@ class RequestDetailViewModel @Inject constructor(
         }
     }
 
-    fun acceptHeroAndComplete(heroId: String) {
+    fun resolveFromOtherSources() {
         viewModelScope.launch {
             _isLoading.value = true
-            repository.markRequestFulfilled(requestId).onSuccess {
-                _isCompleted.value = true
+            repository.resolveRequestWithOutsideSource(requestId).onSuccess {
+                loadRequestDetails()
+            }.onFailure { error ->
+                _errorMessage.value = error.localizedMessage ?: "Failed to close request."
+            }
+            _isLoading.value = false
+        }
+    }
+
+    fun resolveWithHero(heroId: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            repository.resolveRequestWithHero(requestId, heroId).onSuccess {
+                loadRequestDetails()
+            }.onFailure { error ->
+                _errorMessage.value = error.localizedMessage ?: "Fulfillment allocation error."
             }
             _isLoading.value = false
         }
